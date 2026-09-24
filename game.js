@@ -209,19 +209,55 @@
       <p class="fine">This table supersedes all previous tables, none of which agreed with each other.</p>`;
   }
 
+  // ---------- speech (typed out, like every good RPG) ----------
+  let typing = null;
   function renderSpeech(lines) {
-    $("#speech").innerHTML = lines.map(([who, text]) => {
+    const el = $("#speech");
+    el.innerHTML = lines.map(([who]) => {
       const ox = who === "ox";
       const name = ox ? "Ox-Head" : S.soul ? S.soul.file.name : "Soul";
-      return `<p><span class="who ${ox ? "ox" : ""}">${esc(name)}</span> ${esc(text)}</p>`;
+      return `<p><span class="who ${ox ? "ox" : ""}">${esc(name)}</span> <span class="said"></span></p>`;
     }).join("");
+    $("#sr-speech").textContent = lines.map((l) => l[1]).join(" ");
+    typing = { spans: [...el.querySelectorAll(".said")], texts: lines.map((l) => l[1]), who: lines.map((l) => l[0]), i: 0, n: 0, acc: 0 };
+    if (REDUCED) finishTyping();
+  }
+  function finishTyping() {
+    if (!typing) return;
+    typing.spans.forEach((s, i) => (s.textContent = typing.texts[i]));
+    typing = null;
+  }
+  function stepTyping(dt) {
+    if (!typing) return;
+    typing.acc += dt * 70;
+    while (typing && typing.acc >= 1) {
+      typing.acc -= 1;
+      const txt = typing.texts[typing.i];
+      typing.n++;
+      typing.spans[typing.i].textContent = txt.slice(0, typing.n);
+      if (typing.n % 4 === 0 && txt[typing.n - 1] !== " ") tone(typing.who[typing.i] === "ox" ? 190 : 480, 0.03, "triangle", 0.03);
+      if (typing.n >= txt.length) { typing.i++; typing.n = 0; if (typing.i >= typing.texts.length) typing = null; }
+    }
+  }
+
+  // ---------- HUD ----------
+  const hudPrev = {};
+  function setHud(id, num, text) {
+    const el = $(id), prev = hudPrev[id];
+    if (prev !== undefined && prev !== num && !REDUCED) {
+      const color = num > prev ? "#7fd1ae" : "#ff6b5b";
+      el.animate([{ transform: "scale(1.5)", color }, { transform: "scale(1)" }], { duration: 450, easing: "steps(4)" });
+    }
+    hudPrev[id] = num;
+    el.textContent = text;
   }
 
   function renderHud() {
-    $("#hud-day").textContent = S.day;
-    $("#hud-filed").textContent = S.today ? S.today.filed : 0;
-    $("#hud-merit").textContent = signed(netOf(playerRows()));
-    $("#hud-notes").textContent = S.notes + "B";
+    const merit = netOf(playerRows()), filed = S.today ? S.today.filed : 0;
+    setHud("#hud-day", S.day, S.day);
+    setHud("#hud-filed", filed, filed);
+    setHud("#hud-merit", merit, signed(merit));
+    setHud("#hud-notes", S.notes, S.notes + "B");
     updateClock();
     const can = S.phase === "working" && S.soul && !S.busy && !S.closing;
     ["#b-rebirth", "#b-hell", "#b-return"].forEach((id) => ($(id).disabled = !can));
@@ -233,6 +269,7 @@
   function updateClock() {
     const m = Math.floor(S.clock), h = Math.floor(m / 60), mm = m % 60;
     $("#hud-clock").textContent = `${String(h).padStart(2, "0")}:${String(mm - (mm % 5)).padStart(2, "0")}`;
+    $("#hud-clock").parentElement.classList.toggle("urgent", S.phase === "working" && S.clock >= CLOSE - 60 && S.clock < CLOSE);
   }
 
   // ---------- overlays & toasts ----------
@@ -248,11 +285,55 @@
 
   function toast(kind, title, body) {
     const el = $("#toast");
+    el.hidden = true; void el.offsetWidth; // restart the drop-in animation
     el.className = "toast " + kind;
     el.innerHTML = `<strong>${esc(title)}</strong><span>${esc(body)}</span>`;
     el.hidden = false;
     clearTimeout(toast.t);
     toast.t = setTimeout(() => (el.hidden = true), kind === "bad" ? 6000 : 2400);
+  }
+
+  // ---------- DOM juice ----------
+  const deskPapers = () => [$("#p-file"), $("#p-book")];
+  function dealPapers() {
+    if (REDUCED) return;
+    deskPapers().forEach((el, i) => {
+      el.getAnimations().forEach((a) => a.cancel());
+      el.animate([
+        { transform: "translateY(40px) rotate(-3deg)", opacity: 0 },
+        { transform: "translateY(-4px) rotate(.5deg)", opacity: 1, offset: 0.7 },
+        { transform: "none", opacity: 1 },
+      ], { duration: 420, delay: i * 90, easing: "ease-out", fill: "backwards" });
+    });
+  }
+  function fileAway() {
+    if (REDUCED) return;
+    deskPapers().forEach((el, i) => el.animate(
+      [{ transform: "none", opacity: 1 }, { transform: "translateX(-70px) rotate(-6deg)", opacity: 0 }],
+      { duration: 300, delay: i * 60, easing: "ease-in", fill: "forwards" }));
+  }
+  function jiggle(el) {
+    if (REDUCED) return;
+    el.animate([{ transform: "translate(0,0)" }, { transform: "translate(-3px,2px)" }, { transform: "translate(3px,-1px)" }, { transform: "translate(0,0)" }],
+      { duration: 160, easing: "steps(3)" });
+  }
+  function flyNotes(n) {
+    if (REDUCED) return;
+    const from = $("#b-bribe").getBoundingClientRect(), to = $("#hud-notes").getBoundingClientRect();
+    const fx = from.left + from.width / 2, fy = from.top;
+    const dx = to.left + to.width / 2 - fx, dy = to.top - fy;
+    for (let i = 0; i < Math.min(n, 7); i++) {
+      const d = document.createElement("div");
+      d.className = "flynote"; d.textContent = "冥";
+      d.style.left = fx + "px"; d.style.top = fy + "px";
+      document.body.appendChild(d);
+      const spread = (i - 3) * 16;
+      d.animate([
+        { transform: "translate(-50%, 0) rotate(0deg)", opacity: 1 },
+        { transform: `translate(calc(-50% + ${dx * 0.4 + spread}px), ${dy * 0.4 - 70}px) rotate(${spread}deg)`, opacity: 1, offset: 0.45 },
+        { transform: `translate(calc(-50% + ${dx}px), ${dy}px) rotate(0deg) scale(.5)`, opacity: 0.3 },
+      ], { duration: 750 + i * 50, delay: i * 45, easing: "ease-in-out", fill: "both" }).onfinish = () => d.remove();
+    }
   }
 
   // ---------- sound ----------
@@ -261,10 +342,10 @@
     if (!S.sound) return;
     try {
       ac = ac || new (window.AudioContext || window.webkitAudioContext)();
-      const t = ac.currentTime + when, o = ac.createOscillator(), g = ac.createGain();
+      const t = ac.currentTime + when, o = ac.createOscillator(), gn = ac.createGain();
       o.type = type; o.frequency.setValueAtTime(freq, t);
-      g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur);
+      gn.gain.setValueAtTime(vol, t); gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(gn).connect(ac.destination); o.start(t); o.stop(t + dur);
     } catch (e) { /* no audio, no problem */ }
   }
   const sfx = {
@@ -272,8 +353,79 @@
     stamp() { tone(95, 0.16, "square", 0.14); tone(55, 0.3, "sine", 0.3); },
     good() { tone(660, 0.1, "square", 0.04, 0.12); tone(990, 0.16, "square", 0.04, 0.22); },
     bad() { tone(150, 0.3, "sawtooth", 0.07, 0.1); tone(112, 0.4, "sawtooth", 0.07, 0.3); },
-    coins() { [0, 0.07, 0.14].forEach((w, i) => tone(1500 + i * 220, 0.08, "triangle", 0.06, w)); },
+    coins() { [0, 0.07, 0.14, 0.21].forEach((w, i) => tone(1500 + i * 220, 0.08, "triangle", 0.06, w)); },
+    gong() { tone(98, 3, "sine", 0.35); tone(196, 2.2, "sine", 0.12); tone(294, 1.6, "triangle", 0.05); tone(415, 1.2, "sine", 0.04); },
+    thud() { tone(70, 0.3, "square", 0.14); tone(42, 0.5, "sine", 0.35); },
+    rattle() { for (let i = 0; i < 7; i++) tone(160 + rand() * 60, 0.04, "square", 0.05, i * 0.09); },
+    whoosh() { tone(300, 0.5, "sine", 0.06); tone(600, 0.6, "sine", 0.04, 0.1); tone(900, 0.5, "sine", 0.03, 0.2); },
+    rumble() { tone(55, 0.9, "sawtooth", 0.08); tone(40, 1, "sine", 0.2); },
   };
+
+  // ---------- day transitions ----------
+  const waiters = new Set();
+  let skipping = false, curtainBusy = false;
+  function wait(ms) {
+    return new Promise((res) => {
+      if (skipping) return res();
+      const done = () => { clearTimeout(t); waiters.delete(done); res(); };
+      const t = setTimeout(done, ms);
+      waiters.add(done);
+    });
+  }
+  function skipTransition() { if (curtainBusy) { skipping = true; [...waiters].forEach((f) => f()); } }
+  function fade(el, from, to, ms) {
+    el.getAnimations().forEach((a) => a.cancel());
+    el.style.opacity = to;
+    if (skipping || REDUCED) return Promise.resolve();
+    return el.animate([{ opacity: from }, { opacity: to }], { duration: ms }).finished.catch(() => {});
+  }
+
+  // Full-screen interlude: optional night in the dorm, then a gong and a title card.
+  async function transition({ night, title, sub, then }) {
+    if (curtainBusy) return;
+    curtainBusy = true; skipping = false;
+    const c = $("#curtain"), nw = $("#night-wrap"), card = $("#card");
+    nw.hidden = true; card.hidden = true; card.classList.remove("slam");
+    c.hidden = false;
+    await fade(c, 0, 1, 350);
+    hideSheet();
+    if (night) {
+      nightT0 = T; nightOn = true; nw.hidden = false;
+      $("#night-cap").innerHTML = `<span class="when">${esc(night.when)}</span>${esc(night.text)}`;
+      await wait(4600);
+      nightOn = false; nw.hidden = true;
+    }
+    $("#card-day").textContent = title;
+    $("#card-day").classList.toggle("long", title.length > 6);
+    $("#card-sub").textContent = sub;
+    card.hidden = false;
+    void card.offsetWidth; card.classList.add("slam");
+    c.classList.remove("flash"); void c.offsetWidth; c.classList.add("flash");
+    sfx.gong();
+    await wait(2000);
+    then();
+    await fade(c, 1, 0, 400);
+    c.hidden = true; c.classList.remove("flash");
+    curtainBusy = false; skipping = false;
+    const f = $("#sheet button");
+    if (f && !$("#overlay").hidden) f.focus();
+  }
+
+  function nightCaption() {
+    const t = S.today || { citations: [], bribes: [], wrong: 0, summary: {} };
+    const n = S.day;
+    let text;
+    if (t.citations.length >= 3) text = "You dream of Yama. He's holding a clipboard. Your name is at the top.";
+    else if (t.summary && t.summary.caught) text = "The Censorate took your money. You sleep in the dent where it used to be.";
+    else if (t.bribes.length) text = "You sleep on a pillow of hell money. It crinkles every time you roll over.";
+    else if (!t.wrong) text = "A clean day. Your bunkmates have started to find you suspicious.";
+    else text = pick([
+      "Your bunkmates snore, which is impressive, given that none of them breathe.",
+      "Somewhere below, Court 4 is weighing someone. You can hear the scales creak.",
+      "The ghost on the floor mat is on year 212 of a 300-year sentence for queue-jumping.",
+    ]);
+    return { when: `Night ${n}. The clerks' dormitory.`, text };
+  }
 
   // ---------- flow ----------
   function save() {
@@ -300,10 +452,15 @@
       <p class="fine">Keys: 1 Rebirth · 2 Hell · 3 Return · B take bribe</p>`, "dark");
   }
 
+  const daySub = () => dayCfg().title.split(": ")[1] || "";
+  function beginDay(night) { transition({ night, title: `Day ${S.day}`, sub: daySub(), then: startDay }); }
+
   function startDay() {
     S.phase = "memo";
     S.today = { filed: 0, correct: 0, wrong: 0, bribes: [], citations: [] };
-    S.clock = OPEN; S.soulIndex = 0; S.soul = null; S.busy = false; S.closing = false;
+    S.clock = OPEN; S.soulIndex = 0; S.soul = null; S.busy = false; S.stamping = false; S.closing = false;
+    lastSoul = null; A = { mode: "none", t0: T }; parts.length = 0;
+    SH = { pos: 1, from: 1, to: 1, t0: T, dur: 0.001 };
     save();
     renderRules(); renderFile(); renderBook();
     renderSpeech([["ox", "Window opens at nine. Read your memo."]]);
@@ -318,18 +475,21 @@
   }
 
   function openWindow() {
+    if (S.phase !== "memo") return;
     hideSheet();
-    S.phase = "working";
-    nextSoul();
+    S.phase = "opening";
+    shutter(0, 0.7);
+    sfx.rattle();
+    setTimeout(() => { S.phase = "working"; nextSoul(); }, REDUCED ? 50 : 750);
   }
 
   function nextSoul() {
     S.soul = null;
-    if (S.clock >= CLOSE) return endDay();
+    if (S.clock >= CLOSE) return shutDown();
     S.soul = makeSoul(S.soulIndex++);
     anim("enter");
     S.busy = true;
-    renderFile(); renderBook(); renderSpeech(S.soul.lines); renderHud();
+    renderFile(); renderBook(); dealPapers(); renderSpeech(S.soul.lines); renderHud();
     sfx.bell();
     setTimeout(() => { S.busy = false; renderHud(); }, REDUCED ? 50 : 600);
   }
@@ -337,11 +497,13 @@
   function takeBribe() {
     const s = S.soul;
     if (!s || !s.bribe || s.bribeTaken || S.busy) return;
+    flyNotes(s.bribe);
     s.bribeTaken = true;
     S.notes += s.bribe;
     S.service.bribes++;
     S.today.bribes.push(s.bribe);
     sfx.coins();
+    ox("away");
     renderSpeech([["soul", "Pleasure doing business."], ["ox", "I didn't see anything. I have a very large head and very small eyes."]]);
     renderHud();
   }
@@ -363,30 +525,45 @@
     st.className = "vstamp " + v;
     st.textContent = v === "rebirth" ? "Rebirth" : v === "hell" ? `Hell · ${court}` : "Returned";
     sfx.stamp();
+    shake(2);
+    jiggle($("#p-file"));
 
     const react = pick(D.REACT[v]).slice();
     if (v === "rebirth") react.push(["ox", `Forwarded to the 10th Court. Likely rebirth: ${tierFor(netOf(effectiveRows(s, dayCfg())))}`]);
     if (v === "hell") react.push(["ox", D.COURTS[court].sentence]);
     renderSpeech(react);
 
-    if (ok) { toast("good", "Filed", "Correct. +1 to your own ledger."); sfx.good(); }
-    else { toast("bad", `Citation: should be ${verdictLabel(want)}`, want.why); sfx.bad(); }
+    if (ok) { toast("good", "Filed", "Correct. +1 to your own ledger."); sfx.good(); ox("nod"); }
+    else { toast("bad", `Citation: should be ${verdictLabel(want)}`, want.why); sfx.bad(); ox("shake"); }
 
     anim(v === "rebirth" ? "up" : v === "hell" ? "down" : "back");
+    if (v === "rebirth") sfx.whoosh();
+    if (v === "hell") sfx.rumble();
     renderHud();
-    setTimeout(() => { S.busy = false; S.stamping = false; nextSoul(); }, REDUCED ? 900 : 1700);
+    const hold = REDUCED ? 900 : 2200;
+    setTimeout(fileAway, hold - 400);
+    setTimeout(() => { S.busy = false; S.stamping = false; nextSoul(); }, hold);
   }
 
   function closeWindow() {
     if (S.closing) return;
     S.closing = true;
     renderHud();
-    if (S.stamping) return; // stamp() will call nextSoul(), which sees the clock and ends the day
+    if (S.stamping) return; // stamp() will call nextSoul(), which sees the clock and shuts the window
     if (S.soul) {
       renderSpeech([["ox", "Window's closed. Come back tomorrow."], ["soul", "But I've been waiting all day!"], ["ox", "You're dead. You've got time."]]);
       anim("back");
-    }
-    setTimeout(endDay, 1800);
+      fileAway();
+      setTimeout(shutDown, 1600);
+    } else shutDown();
+  }
+
+  // Slam the shutter, then tally up the day.
+  function shutDown() {
+    S.closing = true;
+    shutter(1, 0.45);
+    setTimeout(() => { shake(3); sfx.thud(); }, REDUCED ? 0 : 450);
+    setTimeout(endDay, REDUCED ? 300 : 1400);
   }
 
   function endDay() {
@@ -400,11 +577,12 @@
     S.service.audits += caught;
     const wages = t.correct * E.wage;
     S.notes = S.notes - seized + wages;
-    let rentNote = `-${E.dorm}B`;
+    let arrears = false;
     if (S.notes >= E.dorm) S.notes -= E.dorm;
-    else { rentNote = `couldn't pay. Arrears noted (-1 merit)`; S.service.arrears++; S.notes = 0; }
-    t.summary = { seized, caught, wages, rentNote };
-    renderFile(); renderBook(); renderHud();
+    else { arrears = true; S.service.arrears++; S.notes = 0; }
+    t.summary = { seized, caught, wages, arrears };
+    renderFile(); renderBook(); dealPapers(); renderHud();
+    renderSpeech([["ox", "Another day, another pile of souls. Go get some sleep. Or whatever it is we do."]]);
     summarySheet();
   }
 
@@ -426,7 +604,7 @@
       <h3 class="sub">Wallet (Hell Bank Notes, billions)</h3>
       <table class="tally"><tbody>
         <tr><td>Wages (${E.wage}B per correct filing)</td><td class="num pos">+${sm.wages}B</td></tr>
-        <tr><td>Dormitory bunk (shared with three ghosts)</td><td class="num">${esc(sm.rentNote)}</td></tr>
+        <tr><td>Dormitory bunk (shared with three ghosts)${sm.arrears ? `<br><small class="neg">Couldn't pay. Arrears noted, -1 merit.</small>` : ""}</td><td class="num neg">${sm.arrears ? "0B" : `-${E.dorm}B`}</td></tr>
         <tr><td><b>Balance</b></td><td class="num"><b id="bal">${S.notes}B</b></td></tr>
       </tbody></table>
       <div class="shop">
@@ -453,19 +631,29 @@
       <button class="btn primary" data-act="restart">New life, same job</button>`);
   }
 
-  function newGame() {
-    S.day = 1; S.notes = 0;
+  function resetGame() {
+    S.day = 1; S.notes = 0; S.today = null;
     S.service = { correct: 0, wrong: 0, bribes: 0, sutras: 0, audits: 0, arrears: 0 };
-    startDay();
   }
 
   // ---------- canvas scene ----------
   const cv = $("#scene"), ctx = cv.getContext("2d");
+  const ncv = $("#night"), nctx = ncv.getContext("2d");
   const W = 200, H = 100;
+  let g = ctx; // the context R() draws into
   let T = 0, last = performance.now();
-  let A = { mode: "none", t0: 0 };
+  let A = { mode: "none", t0: 0 };          // the soul's current move
+  let OX = { mode: "idle", t0: 0 };         // Ox-Head's current reaction
+  let SH = { pos: 1, from: 1, to: 1, t0: 0, dur: 0.001 }; // shutter: 0 open, 1 shut
+  let shakeAmt = 0, lastSoul = null, nightOn = false, nightT0 = 0;
+  const parts = [];
+
   function anim(mode) { A = { mode, t0: T }; }
-  function R(x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, h); }
+  function ox(mode) { OX = { mode, t0: T }; }
+  function shutter(to, dur) { SH = { pos: SH.pos, from: SH.pos, to, t0: T, dur: REDUCED ? 0.001 : dur }; }
+  function shake(a) { if (!REDUCED) shakeAmt = Math.max(shakeAmt, a); }
+  function R(x, y, w, h, c) { g.fillStyle = c; g.fillRect(Math.round(x), Math.round(y), w, h); }
+  function spawn(p) { if (!REDUCED && parts.length < 300) { p.max = p.life; parts.push(p); } }
 
   function drawSoul(x, y, L, bob) {
     y += bob;
@@ -496,72 +684,179 @@
     if (L.beard) { R(x - 4, y - 21, 8, 3, h); R(x - 2, y - 18, 4, 3, h); }
   }
 
-  function draw() {
-    const mo = REDUCED ? 0 : 1;
-    // wall and floor
-    R(0, 0, W, H, "#1d1420");
-    for (let x = 8; x < W; x += 16) R(x, 6, 1, 72, "#241a28");
-    R(0, 0, W, 6, "#140e17");
-    R(0, 78, W, 22, "#150e17");
-    // the queue, fading into the gloom
-    for (let i = 0; i < 6; i++) {
-      const gx = 148 + i * 8, gy = 60 + Math.round(Math.sin(T * 1.6 + i * 1.3) * mo);
-      ctx.globalAlpha = 0.3 - i * 0.04;
-      R(gx + 1, gy, 5, 5, "#7fd1ae"); R(gx, gy + 5, 7, 13, "#7fd1ae");
-      ctx.globalAlpha = 1;
-    }
-    // pillars
-    [4, 188].forEach((px) => { R(px, 0, 8, 80, "#7d1f18"); R(px + 1, 0, 2, 80, "#c0392b"); R(px - 1, 72, 10, 6, "#5a3a22"); });
-    // lanterns
-    [26, 166].forEach((lx, i) => {
-      const fl = mo ? 0.5 + 0.5 * Math.sin(T * 7 + i * 2) * Math.sin(T * 3.1) : 0.5;
-      R(lx + 3, 0, 1, 8, "#3a2a2a");
-      ctx.globalAlpha = 0.05 + fl * 0.04; R(lx - 3, 5, 14, 17, "#e0a84a"); R(lx - 5, 8, 18, 11, "#e0a84a"); ctx.globalAlpha = 1;
-      R(lx, 8, 8, 10, "#c0392b"); R(lx + 1, 9, 2, 8, "#e0574a");
-      R(lx, 8, 8, 1, "#e0a84a"); R(lx, 17, 8, 1, "#e0a84a"); R(lx + 3, 18, 2, 4, "#e0a84a");
-    });
-    // plaque over the window
-    R(74, 3, 52, 12, "#2b1d14"); R(74, 3, 52, 1, "#e0a84a"); R(74, 14, 52, 1, "#e0a84a");
-    R(74, 3, 1, 12, "#e0a84a"); R(125, 3, 1, 12, "#e0a84a");
-    ctx.fillStyle = "#e0a84a"; ctx.font = "bold 8px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText("第一殿", 100, 9.5);
-    // Ox-Head, on duty
+  function drawOx(mo) {
+    const p = T - OX.t0;
+    let dx = 0, dy = 0, look = 0;
+    if (OX.mode === "nod" && p < 0.9) dy = Math.sin(p * Math.PI * 4) > 0 ? 2 : 0;
+    else if (OX.mode === "shake" && p < 0.9) dx = Math.round(Math.sin(p * Math.PI * 6) * 2);
+    else if (OX.mode === "away" && p < 2.6) look = -2;
     const blink = mo && T % 4 < 0.12;
     R(22, 52, 22, 28, "#3a2f4a"); R(22, 64, 22, 2, "#c0392b");
-    R(26, 38, 14, 13, "#6b4428"); R(28, 45, 10, 7, "#a0714a");
-    R(30, 48, 2, 1, "#2b1d14"); R(34, 48, 2, 1, "#2b1d14");
-    if (!blink) { R(28, 41, 2, 2, "#e0a84a"); R(36, 41, 2, 2, "#e0a84a"); }
-    R(23, 38, 3, 2, "#e9dcb0"); R(22, 35, 2, 3, "#e9dcb0"); R(40, 38, 3, 2, "#e9dcb0"); R(42, 35, 2, 3, "#e9dcb0");
+    R(26 + dx, 38 + dy, 14, 13, "#6b4428"); R(28 + dx, 45 + dy, 10, 7, "#a0714a");
+    R(30 + dx, 48 + dy, 2, 1, "#2b1d14"); R(34 + dx, 48 + dy, 2, 1, "#2b1d14");
+    if (!blink) { R(28 + dx + look, 41 + dy, 2, 2, "#e0a84a"); R(36 + dx + look, 41 + dy, 2, 2, "#e0a84a"); }
+    R(23 + dx, 38 + dy, 3, 2, "#e9dcb0"); R(22 + dx, 35 + dy, 2, 3, "#e9dcb0");
+    R(40 + dx, 38 + dy, 3, 2, "#e9dcb0"); R(42 + dx, 35 + dy, 2, 3, "#e9dcb0");
     R(47, 22, 1, 58, "#8a7a6a"); R(45, 16, 5, 7, "#c9c9d2"); R(44, 18, 1, 3, "#c9c9d2");
-    // the soul at the window
-    if (S.soul || A.mode === "up" || A.mode === "down" || A.mode === "back") drawCurrent(mo);
-    // window frame and counter
-    R(56, 17, 88, 3, "#5a3a22"); R(56, 17, 3, 63, "#5a3a22"); R(141, 17, 3, 63, "#5a3a22");
-    R(0, 80, W, 20, "#4a2f1c"); R(0, 80, W, 2, "#7a5232");
-    for (let x = 6; x < W; x += 23) R(x, 86 + (x % 3), 12, 1, "#3d2616");
-    R(150, 76, 20, 4, "#e9dcb0"); R(152, 74, 16, 2, "#d8c890");
-    R(36, 77, 10, 3, "#222"); R(120, 75, 5, 5, "#e0a84a"); R(121, 74, 3, 1, "#e0a84a");
   }
 
-  let lastSoul = null;
+  function drawShutter() {
+    const h = Math.round(60 * SH.pos);
+    if (h <= 0) return;
+    const top = 20, bot = top + h;
+    R(59, top, 82, h, "#6b4428");
+    for (let y = bot - 7; y > top; y -= 7) R(59, y, 82, 1, "#4a2f1c");
+    R(59, bot - 3, 82, 3, "#3d2616");
+    if (SH.pos > 0.55) {
+      const sy = bot - 30;
+      R(88, top, 1, sy - top, "#8a7a6a"); R(111, top, 1, sy - top, "#8a7a6a");
+      R(84, sy, 32, 12, "#c0392b"); R(84, sy, 32, 1, "#e0a84a"); R(84, sy + 11, 32, 1, "#e0a84a");
+      g.fillStyle = "#f3e9c4"; g.font = "bold 7px monospace"; g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillText("CLOSED", 100, sy + 6.5);
+    }
+  }
+
+  // A pixel "?" for confused souls.
+  function drawQuestion(x, y) {
+    const c = "#e0a84a";
+    R(x, y, 4, 1, c); R(x + 3, y + 1, 1, 2, c); R(x + 1, y + 3, 2, 1, c); R(x + 1, y + 4, 1, 1, c); R(x + 1, y + 6, 1, 1, c);
+  }
+
   function drawCurrent(mo) {
     const s = S.soul || lastSoul;
     if (!s) return;
     if (S.soul) lastSoul = S.soul;
-    const p = Math.min(1, (T - A.t0) / (A.mode === "enter" ? 0.6 : 1.1));
-    let x = 100, y = 82, a = 1;
-    if (A.mode === "enter") { x = 150 - 50 * p; a = p; }
-    else if (A.mode === "up") {
-      y -= 44 * p; a = 1 - p;
-      ctx.globalAlpha = 0.35 * (1 - p); R(88, 0, 24, 80, "#f5e3a1"); ctx.globalAlpha = 1;
+    const e = T - A.t0, p = Math.min(1, e / (A.mode === "enter" ? 0.6 : A.mode === "back" ? 1.6 : 1.2));
+    let x = 100, y = 82, a = 1, bob = Math.round(Math.sin(T * 2.2) * mo);
+    if (A.mode === "enter") {
+      const k = 1 - (1 - p) * (1 - p);
+      x = 150 - 50 * k; a = Math.min(1, p * 2);
+      bob = -Math.round(Math.abs(Math.sin(p * Math.PI * 3)) * 2 * mo);
+    } else if (A.mode === "up") {
+      const k = p * p;
+      y -= 50 * k; a = 1 - k;
+      g.globalAlpha = 0.4 * Math.sin(Math.min(1, e / 1.2) * Math.PI); R(86, 0, 28, 80, "#f5e3a1"); R(92, 0, 16, 80, "#fff8dc"); g.globalAlpha = 1;
     } else if (A.mode === "down") {
-      y += 40 * p;
-      ctx.globalAlpha = 0.5 * Math.sin(p * Math.PI); R(59, 50, 82, 30, "#c0392b"); ctx.globalAlpha = 1;
-    } else if (A.mode === "back") { x = 100 + 70 * p; a = 1 - p; }
+      const k = p * p;
+      y += 44 * k;
+      const glow = Math.sin(Math.min(1, e / 1.2) * Math.PI);
+      g.globalAlpha = 0.45 * glow; R(59, 40, 82, 40, "#c0392b"); g.globalAlpha = 1;
+      if (mo) for (let fx = 60; fx < 140; fx += 3) {
+        const fh = Math.round((2 + Math.abs(Math.sin(fx * 1.7 + T * 13)) * 9) * glow);
+        R(fx, 80 - fh, 2, fh, fh > 7 ? "#e0a84a" : "#e0574a");
+      }
+    } else if (A.mode === "back") {
+      x = 100 + 70 * p; a = p < 0.6 ? 1 : 1 - (p - 0.6) / 0.4;
+      bob = -Math.round(Math.abs(Math.sin(e * Math.PI * 3)) * 2 * mo);
+    }
     if (!S.soul && p >= 1) return;
-    ctx.globalAlpha = a * 0.92;
-    drawSoul(x, y, s.look, Math.round(Math.sin(T * 2.2) * mo));
-    ctx.globalAlpha = 1;
+    g.globalAlpha = a * 0.92;
+    drawSoul(x, y, s.look, bob);
+    if (A.mode === "back" && p < 0.7) drawQuestion(x - 2, y - 50 + bob);
+    g.globalAlpha = 1;
+  }
+
+  function draw() {
+    g = ctx;
+    const mo = REDUCED ? 0 : 1;
+    const sx = shakeAmt ? Math.round((rand() * 2 - 1) * shakeAmt) : 0, sy = shakeAmt ? Math.round((rand() * 2 - 1) * shakeAmt) : 0;
+    ctx.setTransform(1, 0, 0, 1, sx, sy);
+    // wall and floor
+    R(-4, -4, W + 8, H + 8, "#1d1420");
+    for (let x = 8; x < W; x += 16) R(x, 6, 1, 72, "#241a28");
+    R(-4, -4, W + 8, 10, "#140e17");
+    R(-4, 78, W + 8, 26, "#150e17");
+    // the queue, shuffling forward when someone new steps up
+    const qp = A.mode === "enter" ? Math.min(1, (T - A.t0) / 0.6) : 1;
+    const qs = 8 * (1 - qp);
+    for (let i = 0; i < 6; i++) {
+      const gx = 148 + i * 8 + qs, gy = 60 + Math.round(Math.sin(T * 1.6 + i * 1.3) * mo);
+      g.globalAlpha = 0.3 - i * 0.04;
+      R(gx + 1, gy, 5, 5, "#7fd1ae"); R(gx, gy + 5, 7, 13, "#7fd1ae");
+      g.globalAlpha = 1;
+    }
+    // pillars
+    [4, 188].forEach((px) => { R(px, 0, 8, 80, "#7d1f18"); R(px + 1, 0, 2, 80, "#c0392b"); R(px - 1, 72, 10, 6, "#5a3a22"); });
+    // lanterns, jittering nervously in the last hour
+    const late = S.phase === "working" && S.clock >= CLOSE - 60 ? 2.5 : 1;
+    [26, 166].forEach((lx, i) => {
+      const fl = mo ? 0.5 + 0.5 * Math.sin(T * 7 * late + i * 2) * Math.sin(T * 3.1 * late) : 0.5;
+      const sway = mo ? Math.round(Math.sin(T * 1.3 + i) * 0.6) : 0;
+      R(lx + 3, 0, 1, 8, "#3a2a2a");
+      g.globalAlpha = 0.05 + fl * 0.04; R(lx - 3 + sway, 5, 14, 17, "#e0a84a"); R(lx - 5 + sway, 8, 18, 11, "#e0a84a"); g.globalAlpha = 1;
+      R(lx + sway, 8, 8, 10, "#c0392b"); R(lx + 1 + sway, 9, 2, 8, "#e0574a");
+      R(lx + sway, 8, 8, 1, "#e0a84a"); R(lx + sway, 17, 8, 1, "#e0a84a"); R(lx + 3 + sway, 18, 2, 4, "#e0a84a");
+    });
+    // plaque over the window
+    R(74, 3, 52, 12, "#2b1d14"); R(74, 3, 52, 1, "#e0a84a"); R(74, 14, 52, 1, "#e0a84a");
+    R(74, 3, 1, 12, "#e0a84a"); R(125, 3, 1, 12, "#e0a84a");
+    g.fillStyle = "#e0a84a"; g.font = "bold 8px serif"; g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText("第一殿", 100, 9.5);
+    drawOx(mo);
+    // the soul, its sparkles or embers, then the shutter
+    if (S.soul || A.mode === "up" || A.mode === "down" || A.mode === "back") drawCurrent(mo);
+    for (const p of parts) { g.globalAlpha = Math.min(1, (p.life / p.max) * 1.6); R(p.x, p.y, p.s, p.s, p.c); }
+    g.globalAlpha = 1;
+    drawShutter();
+    // window frame and counter
+    R(56, 17, 88, 3, "#5a3a22"); R(56, 17, 3, 63, "#5a3a22"); R(141, 17, 3, 63, "#5a3a22");
+    R(-4, 80, W + 8, 24, "#4a2f1c"); R(-4, 80, W + 8, 2, "#7a5232");
+    for (let x = 6; x < W; x += 23) R(x, 86 + (x % 3), 12, 1, "#3d2616");
+    R(150, 76, 20, 4, "#e9dcb0"); R(152, 74, 16, 2, "#d8c890");
+    R(36, 77, 10, 3, "#222"); R(120, 75, 5, 5, "#e0a84a"); R(121, 74, 3, 1, "#e0a84a");
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+
+  // ---------- the dormitory, at night ----------
+  function Z(x, y, c) { R(x, y, 4, 1, c); R(x + 2, y + 1, 1, 1, c); R(x + 1, y + 2, 1, 1, c); R(x, y + 3, 4, 1, c); }
+  function sleeper(x, y, skin, blanket, len) {
+    R(x, y - 6, 7, 6, skin); R(x + 1, y - 3, 2, 1, "#1a1420"); R(x + 4, y - 3, 2, 1, "#1a1420");
+    R(x + 7, y - 5, len, 5, blanket); R(x + 7, y - 5, len, 1, "rgba(255,255,255,.15)");
+  }
+  function drawNight() {
+    g = nctx;
+    const t = T - nightT0, mo = REDUCED ? 0 : 1;
+    R(0, 0, W, H, "#141022"); R(0, 76, W, 24, "#0d0a14");
+    for (let x = 10; x < W; x += 20) R(x, 0, 1, 76, "#1a1530");
+    // window, stars, and the moon crossing it
+    R(128, 12, 46, 32, "#1c2748");
+    [[132, 16], [150, 20], [166, 15], [140, 34], [170, 30], [158, 38]].forEach(([x, y], i) => {
+      if (!mo || Math.sin(T * 3 + i * 2) > -0.6) R(x, y, 1, 1, "#e8e4ff");
+    });
+    const mx = 122 + Math.min(1, t / 4.6) * 56;
+    nctx.save(); nctx.beginPath(); nctx.rect(128, 12, 46, 32); nctx.clip();
+    R(mx, 20, 8, 6, "#f3ecc8"); R(mx + 1, 19, 6, 8, "#f3ecc8"); R(mx + 2, 21, 2, 2, "#d8d0a8");
+    nctx.restore();
+    ["#3a2a3a"].forEach((c) => { R(126, 10, 50, 2, c); R(126, 44, 50, 2, c); R(126, 10, 2, 36, c); R(174, 10, 2, 36, c); R(150, 12, 1, 32, c); R(128, 27, 46, 1, c); });
+    nctx.globalAlpha = 0.03; R(118, 46, 56, 30, "#f3ecc8"); nctx.globalAlpha = 1;
+    // bunk bed and sleepers
+    R(18, 18, 3, 60, "#5a3a22"); R(98, 18, 3, 60, "#5a3a22");
+    R(18, 20, 83, 2, "#5a3a22"); R(18, 44, 83, 3, "#6b4428"); R(18, 70, 83, 3, "#6b4428");
+    sleeper(24, 44, "#cfe8dc", "#556070", 30);
+    sleeper(62, 44, "#d6e0ea", "#6b4a7a", 30);
+    sleeper(24, 70, "#e0dccb", "#c0392b", 66); // you
+    sleeper(122, 81, "#c7e0e0", "#4f7a52", 44); // floor-mat roommate
+    // an arrow, in case you forgot which one is you
+    const by = Math.round(Math.abs(Math.sin(T * 3)) * 2 * mo);
+    R(25, 53 - by, 5, 2, "#e0a84a"); R(26, 55 - by, 3, 1, "#e0a84a"); R(27, 56 - by, 1, 1, "#e0a84a");
+    // your hell money, stuffed under the bunk
+    for (let i = 0; i < Math.min(6, Math.ceil(S.notes / 2)); i++) R(34 + i * 8, 74, 6, 2, i % 2 ? "#c9a646" : "#b8894a");
+    // candle on a stool, burning down
+    R(106, 66, 10, 10, "#3d2616"); R(109, 60, 3, 6, "#e9dcb0");
+    const dim = Math.max(0.3, 1 - t / 6), fl = mo ? Math.sin(T * 9) * 0.5 + 0.5 : 0.5;
+    R(110, 57 - Math.round(fl), 1, 3, "#ffd27a");
+    nctx.globalAlpha = (0.1 + fl * 0.05) * dim; R(100, 50, 22, 20, "#e0a84a"); nctx.globalAlpha = 1;
+    // snoring
+    [[30, 34], [68, 34], [128, 70]].forEach(([zx, zy], i) => {
+      for (let k = 0; k < (mo ? 2 : 1); k++) {
+        const ph = mo ? (T * 0.5 + k * 0.5 + i * 0.33) % 1 : 0.3;
+        nctx.globalAlpha = 1 - ph;
+        Z(zx + ph * 12, zy - ph * 16, "#7fd1ae");
+      }
+      nctx.globalAlpha = 1;
+    });
+    nctx.globalAlpha = Math.min(0.35, t / 12); R(0, 0, W, H, "#000"); nctx.globalAlpha = 1;
+    g = ctx;
   }
 
   function frame(now) {
@@ -572,13 +867,29 @@
       if (S.clock >= CLOSE) { S.clock = CLOSE; closeWindow(); }
       updateClock();
     }
+    stepTyping(dt);
+    // shutter easing: gravity on the way down, eased on the way up
+    const sp = Math.min(1, (T - SH.t0) / SH.dur);
+    SH.pos = SH.from + (SH.to - SH.from) * (SH.to > SH.from ? sp * sp : 1 - (1 - sp) * (1 - sp));
+    shakeAmt = Math.max(0, shakeAmt - dt * 10);
+    // particles
+    const e = T - A.t0;
+    if (A.mode === "down" && e < 1) for (let i = 0; i < 2; i++) spawn({ x: 62 + rand() * 76, y: 80, vx: (rand() - 0.5) * 10, vy: -20 - rand() * 35, life: 0.5 + rand() * 0.6, s: rand() < 0.3 ? 2 : 1, c: pick(["#ff6b3d", "#e0a84a", "#c0392b", "#ffd27a"]) });
+    if (A.mode === "up" && e < 0.9) spawn({ x: 100 + (rand() - 0.5) * 26, y: 70 - rand() * 30 - e * 40, vx: (rand() - 0.5) * 8, vy: -12 - rand() * 18, life: 0.7 + rand() * 0.4, s: 1, c: pick(["#fff4c2", "#e0a84a", "#ffffff"]) });
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      p.life -= dt;
+      if (p.life <= 0) { parts.splice(i, 1); continue; }
+      p.x += p.vx * dt; p.y += p.vy * dt;
+    }
     draw();
+    if (nightOn) drawNight();
     requestAnimationFrame(frame);
   }
 
   // ---------- input ----------
   function courtPicker() {
-    if (S.phase !== "working" || !S.soul || S.busy) return;
+    if (S.phase !== "working" || !S.soul || S.busy || S.closing) return;
     S.pickingCourt = true;
     const btns = [2, 3, 4, 5, 6, 7, 8, 9].map((n) => `
       <button class="court" data-court="${n}"><span class="num">${n}</span><span>${D.COURTS[n].king}</span><small>${D.COURTS[n].dept}</small></button>`).join("");
@@ -591,6 +902,8 @@
   $("#b-hell").addEventListener("click", courtPicker);
   $("#b-return").addEventListener("click", () => stamp("return"));
   $("#b-bribe").addEventListener("click", takeBribe);
+  $("#speech").addEventListener("click", finishTyping);
+  $("#curtain").addEventListener("click", skipTransition);
   $("#btn-sound").addEventListener("click", () => {
     S.sound = !S.sound;
     $("#btn-sound").textContent = S.sound ? "Sound on" : "Sound off";
@@ -601,14 +914,19 @@
     const c = e.target.closest("[data-court]");
     if (c) return stamp("hell", Number(c.dataset.court));
     const b = e.target.closest("[data-act]");
-    if (!b) return;
+    if (!b || curtainBusy) return;
     const act = b.dataset.act;
-    if (act === "new") { clearSave(); newGame(); }
-    else if (act === "continue") { const sv = loadSave(); S.day = sv.day; S.notes = sv.notes; S.service = sv.service; startDay(); }
+    if (act === "new") { clearSave(); resetGame(); beginDay(null); }
+    else if (act === "continue") {
+      const sv = loadSave();
+      if (!sv) return titleScreen();
+      resetGame(); S.day = sv.day; S.notes = sv.notes; S.service = sv.service;
+      beginDay(null);
+    }
     else if (act === "open") openWindow();
     else if (act === "cancel") hideSheet();
-    else if (act === "nextday") { S.day++; startDay(); }
-    else if (act === "ending") ending();
+    else if (act === "nextday") { const night = nightCaption(); S.day++; beginDay(night); }
+    else if (act === "ending") transition({ night: nightCaption(), title: "Judgement", sub: "Your own file, on someone else's desk", then: ending });
     else if (act === "restart") { hideSheet(); titleScreen(); }
     else if (act === "sutra" && S.notes >= D.ECON.sutra) {
       S.notes -= D.ECON.sutra; S.service.sutras++;
@@ -624,6 +942,7 @@
 
   document.addEventListener("keydown", (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (curtainBusy) { skipTransition(); e.preventDefault(); return; }
     if (S.pickingCourt) {
       if (/^[2-9]$/.test(e.key)) stamp("hell", Number(e.key));
       else if (e.key === "Escape") hideSheet();
@@ -634,6 +953,7 @@
     else if (e.key === "2") courtPicker();
     else if (e.key === "3") stamp("return");
     else if (e.key === "b" || e.key === "B") takeBribe();
+    else if (e.key === " " && typing) { finishTyping(); e.preventDefault(); }
   });
 
   // ---------- boot ----------

@@ -25,7 +25,8 @@
 
   <section class="booth" aria-label="Intake window">
     <canvas id="scene" width="200" height="100" aria-label="A ghost waits at the intake counter while Ox-Head stands guard"></canvas>
-    <div class="speech" id="speech" aria-live="polite"></div>
+    <div class="speech" id="speech" title="Tap to finish the line"></div>
+    <div class="sr" id="sr-speech" aria-live="polite"></div>
   </section>
 
   <nav class="tabs" role="tablist" aria-label="Documents">
@@ -49,6 +50,14 @@
 </div>
 
 <div id="toast" class="toast" hidden role="status"></div>
+<div id="curtain" hidden>
+  <div class="night" id="night-wrap" hidden>
+    <canvas id="night" width="200" height="100" aria-label="The clerks' dormitory at night. Ghosts snore in bunk beds."></canvas>
+    <p id="night-cap"></p>
+  </div>
+  <div class="card" id="card" hidden><div class="card-day" id="card-day"></div><div class="card-sub" id="card-sub"></div></div>
+  <p class="skip">Tap or press any key to skip</p>
+</div>
 <div id="overlay" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
 
 <script src="data.js"></script>
