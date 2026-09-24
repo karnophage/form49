@@ -42,3 +42,12 @@ The setting is real, the details are played for laughs.
 - **Made up for the game:** which sins go to which court (the traditional lists vary by text and are much grimmer), the sentences, the certificates and every rule in the Rulebook.
 
 Further reading: Stephen F. Teiser, *The Scripture on the Ten Kings and the Making of Purgatory in Medieval Chinese Buddhism* (University of Hawai'i Press, 1994), and the Wikipedia article on [Diyu](https://en.wikipedia.org/wiki/Diyu).
+
+## License
+
+Form 49 is split-licensed. See [LICENSE](LICENSE) for the full text.
+
+- **Code** (`game.js`, `style.css`, `index.html`, and the structure of `data.js`): [MIT](https://opensource.org/license/mit). Borrow the stamp logic, particle effects or drawing helpers for your own project, as long as you keep the copyright notice.
+- **Game content** (the writing, characters, souls, jokes, memos, the "Form 49" name, and all art and sound, including the specific characters and scenes drawn by `game.js`): © 2026 karnophage, all rights reserved. Please don't reuse it without asking.
+
+The fonts (Silkscreen, Pixelify Sans, VT323) are loaded from Google Fonts and belong to their authors under the SIL Open Font License. They aren't covered by either license above.

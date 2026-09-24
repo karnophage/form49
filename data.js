@@ -1,4 +1,6 @@
 // data.js — all the words and tuning numbers live here.
+// Code structure: MIT. All text content in this file (names, deeds, dialogue, memos, rules):
+// (c) 2026 karnophage, all rights reserved. See LICENSE.
 // Want more jokes, deeds or souls? Edit this file. The rules live in game.js.
 
 window.F49 = (() => {
