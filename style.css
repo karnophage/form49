@@ -226,3 +226,16 @@ b { font-weight: 600; }
 .hint { color: var(--ink-soft); text-transform: none; font-family: var(--f-body); font-size: 13px; }
 .abacus { background: var(--paper-2); color: var(--ink); border: 2px solid var(--ink); box-shadow: 0 3px 0 var(--ink); padding: 4px 8px; font-family: var(--f-display); font-size: 10px; text-transform: uppercase; }
 .abacus:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+
+/* ---------- tooltips ---------- */
+[data-tip] { cursor: help; }
+.term { text-decoration: underline dotted; text-decoration-thickness: 2px; text-underline-offset: 3px; text-decoration-color: var(--ink-soft); }
+.term:hover, .term:focus-visible { text-decoration-color: var(--ink-bad); }
+.tag:hover, .tag:focus-visible { background: var(--ink-bad); color: var(--paper); }
+.route:hover, .route:focus-visible { background: var(--paper-2); outline: none; }
+.route:focus-visible td { box-shadow: inset 0 -2px 0 var(--ink-bad); }
+.tip { position: fixed; z-index: 55; max-width: min(300px, calc(100vw - 16px)); display: grid; gap: 4px; padding: 10px 12px; background: var(--panel); color: var(--text); border: 3px solid #000; box-shadow: 4px 4px 0 #000, 0 0 0 1px var(--line) inset; font-size: 14px; line-height: 1.35; pointer-events: none; animation: tipin .12s steps(2) both; }
+.tip strong { font-family: var(--f-display); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--gold); font-weight: 700; }
+.tip small { color: var(--muted); font-size: 12px; }
+@keyframes tipin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .tip { animation: none; } }

@@ -24,6 +24,16 @@
   const courtOf = (cat) => (cat ? D.CATS[cat].court : 3);
   const netOf = (rows) => rows.reduce((a, r) => a + r.v, 0);
 
+  // ---------- tooltip markup ----------
+  const tagHTML = (cat) => `<span class="tag" tabindex="0" data-tip="cat:${cat}">${D.CATS[cat].label}</span>`;
+  const TERM_RE = new RegExp(`(${D.GLOSSARY.map((g) => g.re).join("|")})`, "gi");
+  const termIndex = (word) => D.GLOSSARY.findIndex((g) => new RegExp(`^(?:${g.re})$`, "i").test(word));
+  // Underline glossary terms in already-escaped HTML, skipping anything inside tags.
+  function linkTerms(html) {
+    return html.split(/(<[^>]+>)/).map((part) => part.startsWith("<") ? part
+      : part.replace(TERM_RE, (m) => `<span class="term" tabindex="0" data-tip="g:${termIndex(m)}">${m}</span>`)).join("");
+  }
+
   // ---------- state ----------
   const S = {
     phase: "title", day: 1, notes: 0,
@@ -167,7 +177,7 @@
       cert = `<div class="cert">
         ${sealHTML(s.cert)}
         <div><div class="cert-t">Certificate of Merit</div>
-        <div>${esc(s.cert.temple)} certifies the bearer has earned</div>
+        <div>${linkTerms(esc(s.cert.temple))} certifies the bearer has earned</div>
         <div class="num">${signed(s.cert.value)} merit</div></div></div>`;
     }
     el.innerHTML = `
@@ -175,10 +185,10 @@
       <dl class="fields">
         <dt>Name</dt><dd class="big">${esc(f.name)}</dd>
         <dt>Age at death</dt><dd class="num">${f.age}</dd>
-        <dt>Occupation</dt><dd>${esc(f.occupation)}</dd>
-        <dt>Hometown</dt><dd>${esc(f.hometown)}</dd>
-        <dt>Cause</dt><dd>${esc(f.cause)}</dd>
-        <dt>Collected by</dt><dd>${esc(f.collector)}</dd>
+        <dt>Occupation</dt><dd>${linkTerms(esc(f.occupation))}</dd>
+        <dt>Hometown</dt><dd>${linkTerms(esc(f.hometown))}</dd>
+        <dt>Cause</dt><dd>${linkTerms(esc(f.cause))}</dd>
+        <dt>Collected by</dt><dd>${linkTerms(esc(f.collector))}</dd>
       </dl>${cert}<div id="vstamp" class="vstamp" hidden></div>`;
   }
 
@@ -186,7 +196,7 @@
     const s = S.soul, el = $("#p-book");
     if (!s) { el.innerHTML = `<header class="p-head"><span>Book of Life &amp; Death</span></header><p class="empty">No extract requested.</p>`; return; }
     const rows = s.book.deeds.map((d) => `
-      <tr><td>${esc(d.t)}${d.cat ? `<span class="tag">${D.CATS[d.cat].label}</span>` : ""}</td>
+      <tr><td>${linkTerms(esc(d.t))}${d.cat ? tagHTML(d.cat) : ""}</td>
       <td class="v ${d.v > 0 ? "pos" : "neg"}">${signed(d.v)}</td></tr>`).join("");
     el.innerHTML = `
       <header class="p-head"><span>Book of Life &amp; Death</span><span>Certified extract</span></header>
@@ -210,16 +220,16 @@
 
   function renderRules() {
     const day = dayCfg();
-    const rules = [...D.BASE_RULES, ...day.extraRules].map((r) => `<li>${r}</li>`).join("");
-    const routing = Object.entries(D.CATS).map(([, c]) =>
-      `<tr><td class="num">${c.court}</td><td>${D.COURTS[c.court].king}</td><td><span class="tag">${c.label}</span></td></tr>`).join("");
+    const rules = [...D.BASE_RULES, ...day.extraRules].map((r) => `<li>${linkTerms(r)}</li>`).join("");
+    const routing = Object.entries(D.CATS).map(([cat, c]) =>
+      `<tr class="route" tabindex="0" data-tip="court:${c.court}"><td class="num">${c.court}</td><td>${D.COURTS[c.court].king}</td><td>${tagHTML(cat)}</td></tr>`).join("");
     const seal = day.certs ? `<div class="seal-month">${sealHTML(D.SEAL)}<div><b>Seal of the month</b><br>Square. Vermilion ink. Code LOTUS-7.<br>Anything else is forged.</div></div>` : "";
     $("#p-rules").innerHTML = `
       <header class="p-head"><span>Rulebook</span><span>${esc(day.title)}</span></header>
       <ol class="rules">${rules}</ol>${seal}
       <h3 class="sub">Hell routing table</h3>
       <table class="routing"><tbody>${routing}</tbody></table>
-      <p class="fine">This table supersedes all previous tables, none of which agreed with each other.</p>`;
+      <p class="fine">Hover or tap a row or tag for details. This table supersedes all previous tables, none of which agreed with each other.</p>`;
   }
 
   // ---------- speech (typed out, like every good RPG) ----------
@@ -485,7 +495,7 @@
       <header class="memo-head"><span>Memorandum</span><span>${esc(day.title)}</span></header>
       <dl class="memo-meta"><dt>From</dt><dd>Yama, King of the Fifth Court<br><small>Acting supervisor, First Court Intake Annex</small></dd>
       <dt>To</dt><dd>Clerk, Window 3</dd></dl>
-      ${day.memo.map((p) => `<p>${p}</p>`).join("")}
+      ${day.memo.map((p) => `<p>${linkTerms(p)}</p>`).join("")}
       <button class="btn primary" data-act="open">Open the window</button>`);
   }
 
@@ -502,6 +512,7 @@
     S.soul = null;
     if (S.clock >= CLOSE) return shutDown();
     S.soul = makeSoul(S.soulIndex++);
+    hideTip();
     anim("enter");
     S.busy = true;
     renderFile(); renderBook(); dealPapers(); renderSpeech(S.soul.lines); renderHud();
@@ -583,7 +594,7 @@
     if (!canPause()) return;
     if (S.pickingCourt) hideSheet();
     S.paused = true;
-    finishTyping();
+    finishTyping(); hideTip();
     $("#app").classList.add("paused");
     $("#toast").hidden = true;
     showSheet(`
@@ -697,7 +708,7 @@
     S.phase = "ending";
     clearSave();
     const rows = playerRows(), r = verdictFromRows(rows);
-    const table = rows.map((d) => `<tr><td>${esc(d.t)}${d.cat ? `<span class="tag">${D.CATS[d.cat].label}</span>` : ""}</td><td class="v ${d.v > 0 ? "pos" : "neg"}">${signed(d.v)}</td></tr>`).join("");
+    const table = rows.map((d) => `<tr><td>${esc(d.t)}${d.cat ? tagHTML(d.cat) : ""}</td><td class="v ${d.v > 0 ? "pos" : "neg"}">${signed(d.v)}</td></tr>`).join("");
     const verdict = r.v === "rebirth"
       ? `<div class="big-stamp rebirth">Rebirth</div><p>Net merit ${signed(r.net)}. Forwarded to King Zhuanlun. You will be reborn as <b>${esc(tierFor(r.net))}</b></p><p>Meng Po is waiting at the bridge with the soup. You won't remember any of this. Probably for the best.</p>`
       : `<div class="big-stamp">Hell · Court ${r.court}</div><p>Net merit ${signed(r.net)}. Your worst entry: "${esc(r.worst ? r.worst.t : "Did nothing at all")}". Routed to ${D.COURTS[r.court].king}.</p><p>${esc(D.COURTS[r.court].sentence || "")}</p><p>On the bright side, you know exactly how the paperwork works.</p>`;
@@ -965,6 +976,66 @@
     requestAnimationFrame(frame);
   }
 
+  // ---------- tooltips: hover on desktop, tap on touch, focus for keyboards ----------
+  let tipFor = null, tipPinned = false;
+  function tipContent(key) {
+    const [kind, id] = key.split(":");
+    if (kind === "cat") {
+      const c = D.CATS[id], court = D.COURTS[c.court];
+      return `<strong>${c.label} → Court ${c.court}</strong><span>${esc(D.CAT_INFO[id])}</span><small>${esc(court.king)}, ${esc(court.dept)}${id === "filial" && dayCfg().filialDouble ? ". Counts double this week." : ""}</small>`;
+    }
+    if (kind === "court") {
+      const court = D.COURTS[id], note = D.KING_NOTES[id];
+      return `<strong>Court ${id}: ${esc(court.king)}</strong><span>${esc(court.dept)}.${court.sentence ? " Sentence: " + esc(court.sentence) : ""}</span>${note ? `<small>From the tradition: ${esc(note)}</small>` : ""}`;
+    }
+    const g = D.GLOSSARY[Number(id)];
+    return g ? `<strong>${esc(g.title)}</strong><span>${esc(g.text)}</span>` : "";
+  }
+  function showTip(el, pinned) {
+    const html = tipContent(el.dataset.tip);
+    if (!html) return;
+    const tip = $("#tip");
+    if (tipFor) tipFor.removeAttribute("aria-describedby");
+    tip.innerHTML = html; tip.hidden = false;
+    tipFor = el; tipPinned = pinned;
+    el.setAttribute("aria-describedby", "tip");
+    placeTip();
+  }
+  // Keep the tip on its target; close it only once the target has scrolled out of view.
+  function placeTip() {
+    if (!tipFor) return;
+    const tip = $("#tip"), r = tipFor.getBoundingClientRect(), t = tip.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > window.innerHeight || (!r.width && !r.height)) return hideTip();
+    const left = Math.max(8, Math.min(window.innerWidth - t.width - 8, r.left + r.width / 2 - t.width / 2));
+    const above = r.top - t.height - 8;
+    tip.style.left = left + "px";
+    tip.style.top = (above > 8 ? above : r.bottom + 8) + "px";
+  }
+  function hideTip() {
+    if (tipFor) tipFor.removeAttribute("aria-describedby");
+    $("#tip").hidden = true; tipFor = null; tipPinned = false;
+  }
+  document.addEventListener("pointerover", (e) => {
+    if (e.pointerType !== "mouse" || tipPinned) return;
+    const el = e.target.closest("[data-tip]");
+    if (el && el !== tipFor) showTip(el, false);
+  });
+  document.addEventListener("pointerout", (e) => {
+    if (e.pointerType !== "mouse" || tipPinned || !tipFor) return;
+    if (!tipFor.contains(e.relatedTarget)) hideTip();
+  });
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-tip]");
+    if (el) { if (tipFor === el && tipPinned) hideTip(); else showTip(el, true); }
+    else if (tipFor) hideTip();
+  });
+  document.addEventListener("focusin", (e) => {
+    const el = e.target.closest && e.target.closest("[data-tip]");
+    if (el) showTip(el, false); else if (tipFor && !tipPinned) hideTip();
+  });
+  window.addEventListener("scroll", placeTip, true);
+  window.addEventListener("resize", placeTip);
+
   // ---------- input ----------
   function courtPicker() {
     if (S.phase !== "working" || !S.soul || S.busy || S.closing) return;
@@ -1027,6 +1098,10 @@
   document.addEventListener("keydown", (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (curtainBusy) { skipTransition(); e.preventDefault(); return; }
+    if (e.key === "Escape" && tipFor) { hideTip(); e.preventDefault(); return; }
+    if ((e.key === "Enter" || e.key === " ") && e.target.closest && e.target.closest("[data-tip]")) {
+      showTip(e.target.closest("[data-tip]"), true); e.preventDefault(); return;
+    }
     if (S.paused) {
       if (e.key === "p" || e.key === "P" || e.key === "Escape") { resume(); e.preventDefault(); }
       return;

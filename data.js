@@ -17,6 +17,51 @@ window.F49 = (() => {
     arson:     { court: 9, label: "ARSON" },
   };
 
+  // What each category means, for tooltips.
+  const CAT_INFO = {
+    fraud:    "Cheating people for gain: swindles, fake remedies, rigged games, lying matchmakers.",
+    shirk:    "Dodging duty or gratitude: stealing credit, sneering at gifts, escaping debts.",
+    tax:      "Cheating the state or customers on money and measures: evasion, clipped coins, crooked scales.",
+    violence: "Hurting people: biting, brawling, pushing rivals into wells.",
+    irrev:    "Disrespecting Heaven and sacred things: cursing the sky, misusing temple property, chronic weather complaints.",
+    gossip:   "Harming people with words: rumours, slander, spreading other people's business.",
+    filial:   "Failing your parents and ancestors: forgetting them, robbing them, never writing home.",
+    arson:    "Setting fire to things that aren't yours, and other mischief on a grand scale.",
+  };
+
+  // Notes on the kings from the actual tradition. Kings without a solid, well-known fact get none.
+  const KING_NOTES = {
+    1:  "Judges the newly dead first. In many accounts the Mirror of Retribution stands in his court, showing each soul its own misdeeds.",
+    5:  "The best-known of the Ten Kings, adapted from the Indian god Yama. Folk tradition says he once ran the First Court but was moved to the Fifth for being too soft on souls who had died unjustly.",
+    7:  "Named after Mount Tai, which Chinese belief linked to the dead long before Buddhism arrived.",
+    9:  "His name, Pingdeng, means \"impartial\" or \"equal\".",
+    10: "The Wheel-Turning King. He decides what each soul is reborn as, then sends it on to Meng Po.",
+  };
+
+  // Real-world terms that appear in the papers. `re` is matched against the text.
+  const GLOSSARY = [
+    { re: "Qingming", title: "Qingming", text: "Tomb-Sweeping Day, a spring festival when families clean their ancestors' graves and leave offerings." },
+    { re: "Diamond Sutra", title: "Diamond Sutra", text: "A short Buddhist scripture. Copying sutras by hand was a classic way to earn merit. A copy printed in 868 CE is the oldest dated printed book known." },
+    { re: "Released 200 fish", title: "Life release", text: "Fangsheng: buying captive animals and setting them free to earn merit. Critics point out that many are caught just so they can be sold for release." },
+    { re: "tiger bone", title: "Tiger bone tonic", text: "A traditional remedy. Tigers are protected now, and China banned the tiger bone trade in 1993. In any case, this one was pork." },
+    { re: "mahjong", title: "Mahjong", text: "A tile game for four. It only dates to the 1800s. The underworld has decided not to care." },
+    { re: "temple incense", title: "Temple incense", text: "Incense sticks burned as offerings at temples. Not for pipes." },
+    { re: "imperial exam|exam cramming|failed exam", title: "Imperial exams", text: "The civil-service exams that chose China's officials for about 1,300 years, until 1905. Famously brutal. Some candidates sat them for decades." },
+    { re: "Meng Po", title: "Meng Po", text: "The goddess who serves the Soup of Forgetfulness at the bridge out of the underworld, so souls forget their past life before rebirth." },
+    { re: "the Book", title: "The Book of Life and Death", text: "The underworld's register of every person's allotted lifespan and deeds. Clerical errors in it are a classic plot in Chinese ghost stories." },
+    { re: "Ox-Head|Horse-Face", title: "Ox-Head and Horse-Face", text: "Niutou and Mamian, the underworld's guards. They collect the souls of the dead and escort them to judgement." },
+    { re: "hell money|Hell Bank Notes", title: "Hell bank notes", text: "Joss paper printed to look like banknotes and burned as offerings, so the dead have money to spend. The denominations are enormous. The afterlife has an inflation problem." },
+    { re: "Censorate", title: "The Censorate", text: "The imperial agency whose job was to watch officials and report corruption." },
+    { re: "Filial Piety", title: "Filial piety", text: "Xiao: respect and care for your parents and ancestors, one of the core Confucian virtues." },
+    { re: "Fengdu", title: "Fengdu", text: "A real town on the Yangtze known as the Ghost City, full of temples and shrines to the rulers of the underworld." },
+    { re: "White Horse Temple", title: "White Horse Temple", text: "Traditionally said to be China's first Buddhist temple, founded in Luoyang in 68 CE." },
+    { re: "Hanshan Temple", title: "Hanshan Temple", text: "A temple in Suzhou, famous for its bell and a Tang poem about hearing it ring at midnight." },
+    { re: "Shaolin Temple", title: "Shaolin Temple", text: "The Buddhist temple famous for kung fu. This certificate appears to come from the gift shop." },
+    { re: "Matchmaker", title: "Matchmaker", text: "Marriages were traditionally arranged through a matchmaker who negotiated between the families. Accuracy about the groom was optional." },
+    { re: "Night-soil collector", title: "Night-soil collector", text: "Collected human waste from homes to sell to farmers as fertilizer. Honest work, if you don't mind the smell." },
+    { re: "Chang'an", title: "Chang'an", text: "Capital of the Tang dynasty and one of the largest cities in the world at the time. Modern Xi'an." },
+  ];
+
   // The Ten Kings, in the usual order.
   const COURTS = {
     1:  { king: "King Qinguang",  dept: "Intake (that's you)" },
@@ -299,7 +344,7 @@ window.F49 = (() => {
     },
   ];
 
-  return { CATS, COURTS, LOOKALIKE, GIVEN, SURNAMES, HOMETOWNS, OCCUPATIONS, CAUSES, GOOD_DEEDS, BAD_DEEDS,
+  return { CAT_INFO, KING_NOTES, GLOSSARY, CATS, COURTS, LOOKALIKE, GIVEN, SURNAMES, HOMETOWNS, OCCUPATIONS, CAUSES, GOOD_DEEDS, BAD_DEEDS,
     GREETINGS, CLAIMS, BRIBE_LINES, REACT, TIERS, SEAL, SEAL_FAKES, TEMPLES, PLAYER_LIFE, ECON, SPECIALS,
     BASE_RULES, DAYS };
 })();
