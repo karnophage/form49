@@ -187,7 +187,7 @@ window.F49 = (() => {
     { t: "Held a door open for a monk (once)", v: 1 },
   ];
 
-  const ECON = { wage: 1, dorm: 3, sutra: 5, sutraMerit: 1, bribeMerit: -2, auditChance: 0.25 };
+  const ECON = { wage: 1, dorm: 3, sutra: 5, sutraMerit: 1, bribeMerit: -2, auditChance: 0.25, abacus: 2 };
 
   // Hand-written souls, slotted in at fixed queue positions each day.
   // deeds: [text, value, category (bad deeds only)]

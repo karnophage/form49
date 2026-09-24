@@ -29,7 +29,7 @@
     phase: "title", day: 1, notes: 0,
     service: { correct: 0, wrong: 0, bribes: 0, sutras: 0, audits: 0, arrears: 0 },
     today: null, clock: OPEN, soulIndex: 0, soul: null, busy: false, stamping: false, closing: false,
-    sound: true, pickingCourt: false,
+    sound: true, pickingCourt: false, paused: false,
   };
   const dayCfg = () => D.DAYS[S.day - 1];
 
@@ -41,6 +41,9 @@
     if (day.certs && s.cert && certValid(s.cert)) rows.push({ t: "Temple merit certificate", v: s.cert.value });
     return rows;
   }
+
+  // The abacus clerk only reads the Book. Certificates, names and ages are still your job.
+  const abacusSum = (s, day) => s.book.deeds.reduce((a, d) => a + (day.filialDouble && d.cat === "filial" ? d.v * 2 : d.v), 0);
 
   // Positive net merit goes to rebirth; otherwise route by the single worst deed (ties go to the higher court).
   function verdictFromRows(rows) {
@@ -192,7 +195,17 @@
         <dt>Allotted lifespan</dt><dd class="num">${s.book.lifespan}</dd>
       </dl>
       <div class="ledger"><table><tbody>${rows}</tbody></table></div>
-      <p class="net">Net merit: ________ <span>(clerk to calculate)</span></p>`;
+      ${netLine(s)}`;
+  }
+
+  function netLine(s) {
+    const cost = D.ECON.abacus;
+    if (s.abacus === undefined) return `<div class="net"><span>Net merit: ________ <span class="hint">(clerk to calculate)</span></span>
+      <button class="abacus" data-abacus>Abacus clerk: sum it for ${cost}B</button></div>`;
+    if (s.abacus === null) return `<div class="net"><span>Net merit: <span class="hint">clack, clack, clack…</span></span></div>`;
+    const dbl = dayCfg().filialDouble && s.book.deeds.some((d) => d.cat === "filial") ? " Unfilial ×2 applied." : "";
+    return `<div class="net summed"><span>Net merit: <b class="num ${s.abacus > 0 ? "pos" : "neg"}">${signed(s.abacus)}</b></span>
+      <span class="hint">Abacus clerk: Book entries only.${dbl} Names, ages and certificates are your problem.</span></div>`;
   }
 
   function renderRules() {
@@ -261,6 +274,7 @@
     updateClock();
     const can = S.phase === "working" && S.soul && !S.busy && !S.closing;
     ["#b-rebirth", "#b-hell", "#b-return"].forEach((id) => ($(id).disabled = !can));
+    $("#btn-pause").disabled = !canPause();
     const b = $("#b-bribe");
     b.hidden = !(can && S.soul.bribe && !S.soul.bribeTaken);
     if (!b.hidden) b.innerHTML = `Take ${S.soul.bribe}B<small>bribe</small>`;
@@ -358,6 +372,7 @@
     thud() { tone(70, 0.3, "square", 0.14); tone(42, 0.5, "sine", 0.35); },
     rattle() { for (let i = 0; i < 7; i++) tone(160 + rand() * 60, 0.04, "square", 0.05, i * 0.09); },
     whoosh() { tone(300, 0.5, "sine", 0.06); tone(600, 0.6, "sine", 0.04, 0.1); tone(900, 0.5, "sine", 0.03, 0.2); },
+    abacus() { for (let i = 0; i < 9; i++) tone(1800 + rand() * 900, 0.025, "square", 0.03, i * 0.07); },
     rumble() { tone(55, 0.9, "sawtooth", 0.08); tone(40, 1, "sine", 0.2); },
   };
 
@@ -449,7 +464,7 @@
         <button class="btn primary" data-act="new">Start a new shift</button>
         ${sv ? `<button class="btn" data-act="continue">Continue from Day ${sv.day}</button>` : ""}
       </div>
-      <p class="fine">Keys: 1 Rebirth · 2 Hell · 3 Return · B take bribe</p>`, "dark");
+      <p class="fine">Keys: 1 Rebirth · 2 Hell · 3 Return · B take bribe · A abacus · P pause</p>`, "dark");
   }
 
   const daySub = () => dayCfg().title.split(": ")[1] || "";
@@ -457,7 +472,7 @@
 
   function startDay() {
     S.phase = "memo";
-    S.today = { filed: 0, correct: 0, wrong: 0, bribes: [], citations: [] };
+    S.today = { filed: 0, correct: 0, wrong: 0, bribes: [], citations: [], abacus: 0, abacusSpent: 0 };
     S.clock = OPEN; S.soulIndex = 0; S.soul = null; S.busy = false; S.stamping = false; S.closing = false;
     lastSoul = null; A = { mode: "none", t0: T }; parts.length = 0;
     SH = { pos: 1, from: 1, to: 1, t0: T, dur: 0.001 };
@@ -496,7 +511,7 @@
 
   function takeBribe() {
     const s = S.soul;
-    if (!s || !s.bribe || s.bribeTaken || S.busy) return;
+    if (!s || !s.bribe || s.bribeTaken || S.busy || S.paused) return;
     flyNotes(s.bribe);
     s.bribeTaken = true;
     S.notes += s.bribe;
@@ -509,7 +524,7 @@
   }
 
   function stamp(v, court) {
-    if (S.phase !== "working" || !S.soul || S.busy || S.closing) return;
+    if (S.phase !== "working" || !S.soul || S.busy || S.closing || S.paused) return;
     S.busy = true; S.stamping = true;
     hideSheet();
     const s = S.soul, got = { v, court }, want = judge(s, dayCfg());
@@ -543,6 +558,68 @@
     const hold = REDUCED ? 900 : 2200;
     setTimeout(fileAway, hold - 400);
     setTimeout(() => { S.busy = false; S.stamping = false; nextSoul(); }, hold);
+  }
+
+  // ---------- abacus clerk ----------
+  function useAbacus() {
+    const s = S.soul, cost = D.ECON.abacus;
+    if (S.phase !== "working" || !s || S.busy || S.closing || S.paused || s.abacus !== undefined) return;
+    if (S.notes < cost) {
+      renderSpeech([["ox", `The abacus clerk charges ${cost}B and doesn't do credit. Nobody down here does.`]]);
+      tone(150, 0.2, "sawtooth", 0.05);
+      return;
+    }
+    S.notes -= cost; S.today.abacus++; S.today.abacusSpent += cost;
+    s.abacus = null;
+    renderBook(); renderHud();
+    sfx.abacus();
+    setTimeout(() => { if (S.soul === s) { s.abacus = abacusSum(s, dayCfg()); renderBook(); } }, REDUCED ? 0 : 700);
+  }
+
+  // ---------- pause ----------
+  // The papers and dialogue are hidden while paused, so stopping the clock can't be used to study a case.
+  const canPause = () => S.phase === "working" && !S.closing && !S.paused && !curtainBusy;
+  function pause() {
+    if (!canPause()) return;
+    if (S.pickingCourt) hideSheet();
+    S.paused = true;
+    finishTyping();
+    $("#app").classList.add("paused");
+    $("#toast").hidden = true;
+    showSheet(`
+      <header class="memo-head"><span>On break</span><span>${esc($("#hud-clock").textContent)}</span></header>
+      <p>The clock has stopped and the papers are face down. The dead can wait. They're very good at it.</p>
+      <div class="row">
+        <button class="btn primary" data-act="resume">Back to work</button>
+        <button class="btn" data-act="quit">Quit to title</button>
+      </div>
+      <p class="fine">P or Esc also resumes.</p>`, "dark");
+    renderHud();
+  }
+  function resume() {
+    if (!S.paused) return;
+    hideSheet();
+    S.paused = false;
+    $("#app").classList.remove("paused");
+    renderHud();
+  }
+  function confirmQuit() {
+    showSheet(`
+      <header class="memo-head"><span>Quit to title?</span></header>
+      <p>You'll lose today's progress and restart Day ${S.day} next time. Anything from earlier days is kept.</p>
+      <div class="row">
+        <button class="btn" data-act="resume">Keep working</button>
+        <button class="btn primary" data-act="quit-yes">Yes, quit</button>
+      </div>`, "dark");
+  }
+  function quitToTitle() {
+    S.paused = false;
+    $("#app").classList.remove("paused");
+    S.phase = "title"; S.soul = null; S.busy = false; S.closing = false; S.today = null;
+    lastSoul = null; A = { mode: "none", t0: T }; parts.length = 0;
+    SH = { pos: 1, from: 1, to: 1, t0: T, dur: 0.001 };
+    renderFile(); renderBook(); renderSpeech([["ox", "Next!"]]); renderHud();
+    titleScreen();
   }
 
   function closeWindow() {
@@ -604,6 +681,7 @@
       <h3 class="sub">Wallet (Hell Bank Notes, billions)</h3>
       <table class="tally"><tbody>
         <tr><td>Wages (${E.wage}B per correct filing)</td><td class="num pos">+${sm.wages}B</td></tr>
+        ${t.abacus ? `<tr><td>Abacus clerk fees (×${t.abacus})</td><td class="num neg">-${t.abacusSpent}B</td></tr>` : ""}
         <tr><td>Dormitory bunk (shared with three ghosts)${sm.arrears ? `<br><small class="neg">Couldn't pay. Arrears noted, -1 merit.</small>` : ""}</td><td class="num neg">${sm.arrears ? "0B" : `-${E.dorm}B`}</td></tr>
         <tr><td><b>Balance</b></td><td class="num"><b id="bal">${S.notes}B</b></td></tr>
       </tbody></table>
@@ -862,7 +940,7 @@
   function frame(now) {
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now; T += dt;
-    if (S.phase === "working" && $("#overlay").hidden && !S.closing) {
+    if (S.phase === "working" && !S.closing && !S.paused && ($("#overlay").hidden || S.pickingCourt)) {
       S.clock += (dt * (CLOSE - OPEN)) / DAY_SECONDS;
       if (S.clock >= CLOSE) { S.clock = CLOSE; closeWindow(); }
       updateClock();
@@ -903,6 +981,9 @@
   $("#b-return").addEventListener("click", () => stamp("return"));
   $("#b-bribe").addEventListener("click", takeBribe);
   $("#speech").addEventListener("click", finishTyping);
+  $("#btn-pause").addEventListener("click", pause);
+  $("#p-book").addEventListener("click", (e) => { if (e.target.closest("[data-abacus]")) useAbacus(); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
   $("#curtain").addEventListener("click", skipTransition);
   $("#btn-sound").addEventListener("click", () => {
     S.sound = !S.sound;
@@ -924,6 +1005,9 @@
       beginDay(null);
     }
     else if (act === "open") openWindow();
+    else if (act === "resume") resume();
+    else if (act === "quit") confirmQuit();
+    else if (act === "quit-yes") quitToTitle();
     else if (act === "cancel") hideSheet();
     else if (act === "nextday") { const night = nightCaption(); S.day++; beginDay(night); }
     else if (act === "ending") transition({ night: nightCaption(), title: "Judgement", sub: "Your own file, on someone else's desk", then: ending });
@@ -943,13 +1027,19 @@
   document.addEventListener("keydown", (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (curtainBusy) { skipTransition(); e.preventDefault(); return; }
+    if (S.paused) {
+      if (e.key === "p" || e.key === "P" || e.key === "Escape") { resume(); e.preventDefault(); }
+      return;
+    }
     if (S.pickingCourt) {
       if (/^[2-9]$/.test(e.key)) stamp("hell", Number(e.key));
       else if (e.key === "Escape") hideSheet();
       return;
     }
     if (!$("#overlay").hidden) return;
-    if (e.key === "1") stamp("rebirth");
+    if (e.key === "p" || e.key === "P" || e.key === "Escape") pause();
+    else if (e.key === "a" || e.key === "A") useAbacus();
+    else if (e.key === "1") stamp("rebirth");
     else if (e.key === "2") courtPicker();
     else if (e.key === "3") stamp("return");
     else if (e.key === "b" || e.key === "B") takeBribe();
