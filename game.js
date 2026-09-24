@@ -25,7 +25,7 @@
   const netOf = (rows) => rows.reduce((a, r) => a + r.v, 0);
 
   // ---------- tooltip markup ----------
-  const tagHTML = (cat) => `<span class="tag" tabindex="0" data-tip="cat:${cat}">${D.CATS[cat].label}</span>`;
+  const tagHTML = (cat, doubled) => `<span class="tag" tabindex="0" data-tip="cat:${cat}">${D.CATS[cat].label}${doubled ? " ×2" : ""}</span>`;
   const TERM_RE = new RegExp(`(${D.GLOSSARY.map((g) => g.re).join("|")})`, "gi");
   const termIndex = (word) => D.GLOSSARY.findIndex((g) => new RegExp(`^(?:${g.re})$`, "i").test(word));
   // Underline glossary terms in already-escaped HTML, skipping anything inside tags.
@@ -73,7 +73,7 @@
       return { v: "return", why: `Died at ${s.file.age}, but the Book allots ${s.book.lifespan} years. Collected early.` };
     const r = verdictFromRows(effectiveRows(s, day));
     if (r.v === "rebirth") r.why = `Net merit was ${signed(r.net)}. Above zero means Rebirth.`;
-    else r.why = `Net merit was ${signed(r.net)}. Worst deed: "${r.worst.t}" (${D.CATS[r.worst.cat].label}), so Court ${r.court}.`;
+    else r.why = `Net merit was ${signed(r.net)}. Worst deed: "${r.worst.t}" (${signed(r.worst.v)}, ${D.CATS[r.worst.cat].label}), so Court ${r.court}.`;
     return r;
   }
 
@@ -199,9 +199,14 @@
   function renderBook() {
     const s = S.soul, el = $("#p-book");
     if (!s) { el.innerHTML = `<header class="p-head"><span>Book of Life &amp; Death</span></header><p class="empty">No extract requested.</p>`; return; }
-    const rows = s.book.deeds.map((d) => `
-      <tr><td>${linkTerms(esc(d.t))}${d.cat ? tagHTML(d.cat) : ""}</td>
-      <td class="v ${d.v > 0 ? "pos" : "neg"}">${signed(d.v)}</td></tr>`).join("");
+    // Show the value that actually counts, so "worst deed" can be read straight off the page.
+    const dbl = dayCfg().filialDouble;
+    const rows = s.book.deeds.map((d) => {
+      const doubled = dbl && d.cat === "filial", v = doubled ? d.v * 2 : d.v;
+      return `
+      <tr><td>${linkTerms(esc(d.t))}${d.cat ? tagHTML(d.cat, doubled) : ""}</td>
+      <td class="v ${v > 0 ? "pos" : "neg"}">${signed(v)}</td></tr>`;
+    }).join("");
     el.innerHTML = `
       <header class="p-head"><span>Book of Life &amp; Death</span><span>Certified extract</span></header>
       <dl class="fields">
