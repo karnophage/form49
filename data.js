@@ -232,7 +232,7 @@ window.F49 = (() => {
     { t: "Held a door open for a monk (once)", v: 1 },
   ];
 
-  const ECON = { wage: 1, dorm: 3, sutra: 5, sutraMerit: 1, bribeMerit: -2, auditChance: 0.25, abacus: 2 };
+  const ECON = { wage: 1, dorm: 3, sutra: 5, sutraMerit: 1, bribeMerit: -2, auditChance: 0.25, auditMerit: -2, abacus: 2 };
 
   // Hand-written souls, slotted in at fixed queue positions each day.
   // deeds: [text, value, category (bad deeds only)]
@@ -303,7 +303,7 @@ window.F49 = (() => {
     "Age at death must equal the allotted lifespan. If not, someone collected them early: <b>RETURN</b>.",
     "Add up every deed in the Book. Ignore anything the soul tells you. They're dead, they have nothing to lose.",
     "Net merit above zero: <b>REBIRTH</b>. Zero doesn't count. Breaking even is not a virtue.",
-    "Zero or below: <b>HELL</b>. Route to the court of their single worst deed. A tie goes to the higher court. They have more budget.",
+    "Zero or below: <b>HELL</b>. Route to the court of their <b>worst deed</b>: the one with the biggest minus number (−4 is worse than −3). A tie goes to the higher court number. They have more budget.",
   ];
 
   const DAYS = [
@@ -322,9 +322,9 @@ window.F49 = (() => {
       title: "Day 2: Filial Piety Week",
       memo: [
         "The Ministry of Rites has declared Filial Piety Awareness Week.",
-        "Effective immediately, all UNFILIAL deeds count <b>double</b>. Yes, including the ones already in the Book. No, I did not write this rule.",
+        "Effective immediately, all UNFILIAL deeds count <b>double</b>. Yes, including the ones already in the Book. The Book has been updated to show the doubled numbers. No, I did not write this rule.",
       ],
-      extraRules: ["<span class=\"new\">NEW</span> Filial Piety Week: <b>UNFILIAL</b> deeds count <b>double</b>."],
+      extraRules: ["<span class=\"new\">NEW</span> Filial Piety Week: <b>UNFILIAL</b> deeds count <b>double</b>. The Book shows them doubled, marked ×2."],
       filialDouble: true, certs: false,
       specials: { 1: "son", 3: "teller" },
     },
@@ -336,7 +336,7 @@ window.F49 = (() => {
         "Also, the Censorate is auditing this week. I mention this for no reason.",
       ],
       extraRules: [
-        "Filial Piety Week continues: <b>UNFILIAL</b> deeds count <b>double</b>.",
+        "Filial Piety Week continues: <b>UNFILIAL</b> deeds count <b>double</b> (shown doubled, marked ×2).",
         "<span class=\"new\">NEW</span> Merit Certificates: add the value <b>only</b> if the seal matches this month's seal exactly. Forged? Ignore it.",
       ],
       filialDouble: true, certs: true,

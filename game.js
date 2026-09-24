@@ -25,7 +25,7 @@
   const netOf = (rows) => rows.reduce((a, r) => a + r.v, 0);
 
   // ---------- tooltip markup ----------
-  const tagHTML = (cat) => `<span class="tag" tabindex="0" data-tip="cat:${cat}">${D.CATS[cat].label}</span>`;
+  const tagHTML = (cat, doubled) => `<span class="tag" tabindex="0" data-tip="cat:${cat}">${D.CATS[cat].label}${doubled ? " ×2" : ""}</span>`;
   const TERM_RE = new RegExp(`(${D.GLOSSARY.map((g) => g.re).join("|")})`, "gi");
   const termIndex = (word) => D.GLOSSARY.findIndex((g) => new RegExp(`^(?:${g.re})$`, "i").test(word));
   // Underline glossary terms in already-escaped HTML, skipping anything inside tags.
@@ -42,6 +42,9 @@
     sound: true, pickingCourt: false, paused: false,
   };
   const dayCfg = () => D.DAYS[S.day - 1];
+  // Bumped whenever a day starts or is abandoned; delayed callbacks from an older run are ignored.
+  let run = 0;
+  function later(fn, ms) { const r = run; return setTimeout(() => { if (r === run) fn(); }, ms); }
 
   // ---------- the rules ----------
   const certValid = (c) => c.shape === D.SEAL.shape && c.ink === D.SEAL.ink && c.code === D.SEAL.code;
@@ -70,7 +73,7 @@
       return { v: "return", why: `Died at ${s.file.age}, but the Book allots ${s.book.lifespan} years. Collected early.` };
     const r = verdictFromRows(effectiveRows(s, day));
     if (r.v === "rebirth") r.why = `Net merit was ${signed(r.net)}. Above zero means Rebirth.`;
-    else r.why = `Net merit was ${signed(r.net)}. Worst deed: "${r.worst.t}" (${D.CATS[r.worst.cat].label}), so Court ${r.court}.`;
+    else r.why = `Net merit was ${signed(r.net)}. Worst deed: "${r.worst.t}" (${signed(r.worst.v)}, ${D.CATS[r.worst.cat].label}), so Court ${r.court}.`;
     return r;
   }
 
@@ -84,7 +87,7 @@
     if (s.sutras) rows.push({ t: `Outsourced sutra chanting ×${s.sutras}`, v: s.sutras * D.ECON.sutraMerit });
     if (s.wrong) rows.push({ t: `Clerical errors ×${s.wrong}`, v: -s.wrong, cat: "shirk" });
     if (s.bribes) rows.push({ t: `Bribes accepted ×${s.bribes}`, v: s.bribes * D.ECON.bribeMerit, cat: "fraud" });
-    if (s.audits) rows.push({ t: `Caught by the Censorate ×${s.audits}`, v: -2 * s.audits, cat: "fraud" });
+    if (s.audits) rows.push({ t: `Caught by the Censorate ×${s.audits}`, v: s.audits * D.ECON.auditMerit, cat: "fraud" });
     if (s.arrears) rows.push({ t: `Dormitory rent arrears ×${s.arrears}`, v: -s.arrears, cat: "shirk" });
     return rows;
   }
@@ -190,14 +193,20 @@
         <dt>Cause</dt><dd>${linkTerms(esc(f.cause))}</dd>
         <dt>Collected by</dt><dd>${linkTerms(esc(f.collector))}</dd>
       </dl>${cert}<div id="vstamp" class="vstamp" hidden></div>`;
+    dropStaleTip();
   }
 
   function renderBook() {
     const s = S.soul, el = $("#p-book");
     if (!s) { el.innerHTML = `<header class="p-head"><span>Book of Life &amp; Death</span></header><p class="empty">No extract requested.</p>`; return; }
-    const rows = s.book.deeds.map((d) => `
-      <tr><td>${linkTerms(esc(d.t))}${d.cat ? tagHTML(d.cat) : ""}</td>
-      <td class="v ${d.v > 0 ? "pos" : "neg"}">${signed(d.v)}</td></tr>`).join("");
+    // Show the value that actually counts, so "worst deed" can be read straight off the page.
+    const dbl = dayCfg().filialDouble;
+    const rows = s.book.deeds.map((d) => {
+      const doubled = dbl && d.cat === "filial", v = doubled ? d.v * 2 : d.v;
+      return `
+      <tr><td>${linkTerms(esc(d.t))}${d.cat ? tagHTML(d.cat, doubled) : ""}</td>
+      <td class="v ${v > 0 ? "pos" : "neg"}">${signed(v)}</td></tr>`;
+    }).join("");
     el.innerHTML = `
       <header class="p-head"><span>Book of Life &amp; Death</span><span>Certified extract</span></header>
       <dl class="fields">
@@ -206,7 +215,10 @@
       </dl>
       <div class="ledger"><table><tbody>${rows}</tbody></table></div>
       ${netLine(s)}`;
+    dropStaleTip();
   }
+
+  function dropStaleTip() { if (tipFor && !tipFor.isConnected) hideTip(); }
 
   function netLine(s) {
     const cost = D.ECON.abacus;
@@ -299,6 +311,8 @@
   // ---------- overlays & toasts ----------
   function showSheet(html, cls = "") {
     const sh = $("#sheet");
+    S.pickingCourt = false;
+    hideTip();
     sh.className = "sheet " + cls;
     sh.innerHTML = html;
     $("#overlay").hidden = false;
@@ -366,6 +380,7 @@
     if (!S.sound) return;
     try {
       ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      if (ac.state === "suspended") ac.resume(); // Chrome suspends audio created before the first click
       const t = ac.currentTime + when, o = ac.createOscillator(), gn = ac.createGain();
       o.type = type; o.frequency.setValueAtTime(freq, t);
       gn.gain.setValueAtTime(vol, t); gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
@@ -457,7 +472,11 @@
     try { localStorage.setItem(SAVE_KEY, JSON.stringify({ day: S.day, notes: S.notes, service: S.service })); } catch (e) { /* ignore */ }
   }
   function loadSave() {
-    try { const v = JSON.parse(localStorage.getItem(SAVE_KEY)); return v && v.day ? v : null; } catch (e) { return null; }
+    try {
+      const v = JSON.parse(localStorage.getItem(SAVE_KEY));
+      const ok = v && Number.isInteger(v.day) && v.day >= 1 && v.day <= D.DAYS.length && Number.isFinite(v.notes) && v.service && typeof v.service === "object";
+      return ok ? v : null;
+    } catch (e) { return null; }
   }
   function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* ignore */ } }
 
@@ -481,6 +500,7 @@
   function beginDay(night) { transition({ night, title: `Day ${S.day}`, sub: daySub(), then: startDay }); }
 
   function startDay() {
+    run++;
     S.phase = "memo";
     S.today = { filed: 0, correct: 0, wrong: 0, bribes: [], citations: [], abacus: 0, abacusSpent: 0 };
     S.clock = OPEN; S.soulIndex = 0; S.soul = null; S.busy = false; S.stamping = false; S.closing = false;
@@ -505,7 +525,7 @@
     S.phase = "opening";
     shutter(0, 0.7);
     sfx.rattle();
-    setTimeout(() => { S.phase = "working"; nextSoul(); }, REDUCED ? 50 : 750);
+    later(() => { S.phase = "working"; nextSoul(); }, REDUCED ? 50 : 750);
   }
 
   function nextSoul() {
@@ -517,7 +537,7 @@
     S.busy = true;
     renderFile(); renderBook(); dealPapers(); renderSpeech(S.soul.lines); renderHud();
     sfx.bell();
-    setTimeout(() => { S.busy = false; renderHud(); }, REDUCED ? 50 : 600);
+    later(() => { S.busy = false; renderHud(); }, REDUCED ? 50 : 600);
   }
 
   function takeBribe() {
@@ -567,8 +587,8 @@
     if (v === "hell") sfx.rumble();
     renderHud();
     const hold = REDUCED ? 900 : 2200;
-    setTimeout(fileAway, hold - 400);
-    setTimeout(() => { S.busy = false; S.stamping = false; nextSoul(); }, hold);
+    later(fileAway, hold - 400);
+    later(() => { S.busy = false; S.stamping = false; nextSoul(); }, hold);
   }
 
   // ---------- abacus clerk ----------
@@ -584,7 +604,7 @@
     s.abacus = null;
     renderBook(); renderHud();
     sfx.abacus();
-    setTimeout(() => { if (S.soul === s) { s.abacus = abacusSum(s, dayCfg()); renderBook(); } }, REDUCED ? 0 : 700);
+    later(() => { if (S.soul === s) { s.abacus = abacusSum(s, dayCfg()); renderBook(); } }, REDUCED ? 0 : 700);
   }
 
   // ---------- pause ----------
@@ -624,6 +644,7 @@
       </div>`, "dark");
   }
   function quitToTitle() {
+    run++;
     S.paused = false;
     $("#app").classList.remove("paused");
     S.phase = "title"; S.soul = null; S.busy = false; S.closing = false; S.today = null;
@@ -636,13 +657,14 @@
   function closeWindow() {
     if (S.closing) return;
     S.closing = true;
+    if (S.pickingCourt) hideSheet();
     renderHud();
     if (S.stamping) return; // stamp() will call nextSoul(), which sees the clock and shuts the window
     if (S.soul) {
       renderSpeech([["ox", "Window's closed. Come back tomorrow."], ["soul", "But I've been waiting all day!"], ["ox", "You're dead. You've got time."]]);
       anim("back");
       fileAway();
-      setTimeout(shutDown, 1600);
+      later(shutDown, 1600);
     } else shutDown();
   }
 
@@ -650,8 +672,8 @@
   function shutDown() {
     S.closing = true;
     shutter(1, 0.45);
-    setTimeout(() => { shake(3); sfx.thud(); }, REDUCED ? 0 : 450);
-    setTimeout(endDay, REDUCED ? 300 : 1400);
+    later(() => { shake(3); sfx.thud(); }, REDUCED ? 0 : 450);
+    later(endDay, REDUCED ? 300 : 1400);
   }
 
   function endDay() {
@@ -686,7 +708,7 @@
         <tr><td>Souls filed correctly</td><td class="num">${t.correct}</td><td class="num pos">${signed(t.correct)}</td></tr>
         <tr><td>Clerical errors</td><td class="num">${t.wrong}</td><td class="num neg">${t.wrong ? -t.wrong : 0}</td></tr>
         <tr><td>Bribes accepted</td><td class="num">${t.bribes.length}</td><td class="num neg">${t.bribes.length * E.bribeMerit || 0}</td></tr>
-        ${sm.caught ? `<tr><td>Censorate audit! Seized ${sm.seized}B</td><td class="num">${sm.caught}</td><td class="num neg">${-2 * sm.caught}</td></tr>` : ""}
+        ${sm.caught ? `<tr><td>Censorate audit! Seized ${sm.seized}B</td><td class="num">${sm.caught}</td><td class="num neg">${sm.caught * E.auditMerit}</td></tr>` : ""}
       </tbody></table>
       ${cites ? `<h3 class="sub">Citations</h3><ul class="cites">${cites}${more}</ul>` : `<p class="clean">No citations. Yama grunted. That's the good grunt.</p>`}
       <h3 class="sub">Wallet (Hell Bank Notes, billions)</h3>
@@ -1026,7 +1048,10 @@
   });
   document.addEventListener("click", (e) => {
     const el = e.target.closest("[data-tip]");
-    if (el) { if (tipFor === el && tipPinned) hideTip(); else showTip(el, true); }
+    if (el) {
+      if (e.detail) el.blur(); // a mouse or touch click shouldn't leave keyboard focus parked on the term
+      if (tipFor === el && tipPinned) hideTip(); else showTip(el, true);
+    }
     else if (tipFor) hideTip();
   });
   document.addEventListener("focusin", (e) => {
@@ -1039,12 +1064,12 @@
   // ---------- input ----------
   function courtPicker() {
     if (S.phase !== "working" || !S.soul || S.busy || S.closing) return;
-    S.pickingCourt = true;
     const btns = [2, 3, 4, 5, 6, 7, 8, 9].map((n) => `
       <button class="court" data-court="${n}"><span class="num">${n}</span><span>${D.COURTS[n].king}</span><small>${D.COURTS[n].dept}</small></button>`).join("");
     showSheet(`<header class="memo-head"><span>Refer to which court?</span><span>Keys 2-9</span></header>
       <div class="courts">${btns}</div>
       <button class="btn" data-act="cancel">Cancel</button>`);
+    S.pickingCourt = true;
   }
 
   $("#b-rebirth").addEventListener("click", () => stamp("rebirth"));
@@ -1098,8 +1123,8 @@
   document.addEventListener("keydown", (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (curtainBusy) { skipTransition(); e.preventDefault(); return; }
-    if (e.key === "Escape" && tipFor) { hideTip(); e.preventDefault(); return; }
-    if ((e.key === "Enter" || e.key === " ") && e.target.closest && e.target.closest("[data-tip]")) {
+    if (e.key === "Escape" && tipPinned) { hideTip(); e.preventDefault(); return; }
+    if (e.key === "Enter" && e.target.closest && e.target.closest("[data-tip]")) {
       showTip(e.target.closest("[data-tip]"), true); e.preventDefault(); return;
     }
     if (S.paused) {
