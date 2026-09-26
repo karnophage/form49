@@ -36,12 +36,13 @@
 
   // ---------- state ----------
   const S = {
-    phase: "title", day: 1, notes: 0,
+    phase: "title", mode: "normal", day: 1, notes: 0,
     service: { correct: 0, wrong: 0, bribes: 0, sutras: 0, audits: 0, arrears: 0 },
     today: null, clock: OPEN, soulIndex: 0, soul: null, busy: false, stamping: false, closing: false,
     sound: true, pickingCourt: false, paused: false,
   };
   const dayCfg = () => D.DAYS[S.day - 1];
+  const modeCfg = () => D.MODES[S.mode] || D.MODES.normal;
   // Bumped whenever a day starts or is abandoned; delayed callbacks from an older run are ignored.
   let run = 0;
   function later(fn, ms) { const r = run; return setTimeout(() => { if (r === run) fn(); }, ms); }
@@ -303,6 +304,14 @@
   }
 
   function updateClock() {
+    const M = modeCfg();
+    if (!M.timed) {
+      $("#hud-clock-k").textContent = "Souls";
+      $("#hud-clock").textContent = `${S.today ? S.today.filed : 0}/${M.soulsPerDay}`;
+      $("#hud-clock").parentElement.classList.remove("urgent");
+      return;
+    }
+    $("#hud-clock-k").textContent = "Clock";
     const m = Math.floor(S.clock), h = Math.floor(m / 60), mm = m % 60;
     $("#hud-clock").textContent = `${String(h).padStart(2, "0")}:${String(mm - (mm % 5)).padStart(2, "0")}`;
     $("#hud-clock").parentElement.classList.toggle("urgent", S.phase === "working" && S.clock >= CLOSE - 60 && S.clock < CLOSE);
@@ -469,12 +478,13 @@
 
   // ---------- flow ----------
   function save() {
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ day: S.day, notes: S.notes, service: S.service })); } catch (e) { /* ignore */ }
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ mode: S.mode, day: S.day, notes: S.notes, service: S.service })); } catch (e) { /* ignore */ }
   }
   function loadSave() {
     try {
       const v = JSON.parse(localStorage.getItem(SAVE_KEY));
       const ok = v && Number.isInteger(v.day) && v.day >= 1 && v.day <= D.DAYS.length && Number.isFinite(v.notes) && v.service && typeof v.service === "object";
+      if (ok && !D.MODES[v.mode]) v.mode = "normal"; // saves from before modes existed
       return ok ? v : null;
     } catch (e) { return null; }
   }
@@ -489,9 +499,14 @@
       <p>You died. Your own ledger came up short, so instead of rebirth you've been assigned a desk job.</p>
       <p>Souls arrive with a Case File and an extract from the Book of Life and Death. Check the paperwork, do the sums, and stamp them through to <b>Rebirth</b>, off to one of the <b>Courts of Hell</b>, or back to the living if someone collected the wrong person.</p>
       <p>Each correct filing works off a bit of your own karmic debt. Three days. Don't embarrass Yama.</p>
-      <div class="row">
-        <button class="btn primary" data-act="new">Start a new shift</button>
-        ${sv ? `<button class="btn" data-act="continue">Continue from Day ${sv.day}</button>` : ""}
+      ${sv ? `<button class="btn primary" data-act="continue">Continue: Day ${sv.day}, ${esc(D.MODES[sv.mode].label)}</button>` : ""}
+      <h2 class="menu-h">${sv ? "Or start over" : "Choose your shift"}</h2>
+      <div class="modes">
+        ${Object.entries(D.MODES).map(([key, m]) => `
+          <button class="mode" data-act="new" data-mode="${key}">
+            <span class="mode-name">${esc(m.label)}</span>
+            <span class="mode-blurb">${esc(m.blurb)}</span>
+          </button>`).join("")}
       </div>
       <p class="fine">Keys: 1 Rebirth · 2 Hell · 3 Return · B take bribe · A abacus · P pause</p>`, "dark");
   }
@@ -516,6 +531,7 @@
       <dl class="memo-meta"><dt>From</dt><dd>Yama, King of the Fifth Court<br><small>Acting supervisor, First Court Intake Annex</small></dd>
       <dt>To</dt><dd>Clerk, Window 3</dd></dl>
       ${day.memo.map((p) => `<p>${linkTerms(p)}</p>`).join("")}
+      ${modeCfg().memo && S.day === 1 ? `<p><b>${esc(modeCfg().memo)}</b></p>` : ""}
       <button class="btn primary" data-act="open">Open the window</button>`);
   }
 
@@ -530,7 +546,8 @@
 
   function nextSoul() {
     S.soul = null;
-    if (S.clock >= CLOSE) return shutDown();
+    const M = modeCfg();
+    if (M.timed ? S.clock >= CLOSE : S.today.filed >= M.soulsPerDay) return shutDown();
     S.soul = makeSoul(S.soulIndex++);
     hideTip();
     anim("enter");
@@ -703,7 +720,7 @@
     const more = t.citations.length > 6 ? `<li>…and ${t.citations.length - 6} more.</li>` : "";
     const last = S.day >= D.DAYS.length;
     showSheet(`
-      <header class="memo-head"><span>End of day ${S.day}</span><span>17:00</span></header>
+      <header class="memo-head"><span>End of day ${S.day}</span><span>${modeCfg().timed ? "17:00" : `${t.filed} souls filed`}</span></header>
       <table class="tally"><tbody>
         <tr><td>Souls filed correctly</td><td class="num">${t.correct}</td><td class="num pos">${signed(t.correct)}</td></tr>
         <tr><td>Clerical errors</td><td class="num">${t.wrong}</td><td class="num neg">${t.wrong ? -t.wrong : 0}</td></tr>
@@ -973,7 +990,7 @@
   function frame(now) {
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now; T += dt;
-    if (S.phase === "working" && !S.closing && !S.paused && ($("#overlay").hidden || S.pickingCourt)) {
+    if (modeCfg().timed && S.phase === "working" && !S.closing && !S.paused && ($("#overlay").hidden || S.pickingCourt)) {
       S.clock += (dt * (CLOSE - OPEN)) / DAY_SECONDS;
       if (S.clock >= CLOSE) { S.clock = CLOSE; closeWindow(); }
       updateClock();
@@ -1093,11 +1110,11 @@
     const b = e.target.closest("[data-act]");
     if (!b || curtainBusy) return;
     const act = b.dataset.act;
-    if (act === "new") { clearSave(); resetGame(); beginDay(null); }
+    if (act === "new") { clearSave(); resetGame(); S.mode = D.MODES[b.dataset.mode] ? b.dataset.mode : "normal"; beginDay(null); }
     else if (act === "continue") {
       const sv = loadSave();
       if (!sv) return titleScreen();
-      resetGame(); S.day = sv.day; S.notes = sv.notes; S.service = sv.service;
+      resetGame(); S.mode = sv.mode; S.day = sv.day; S.notes = sv.notes; S.service = sv.service;
       beginDay(null);
     }
     else if (act === "open") openWindow();

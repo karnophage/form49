@@ -17,6 +17,8 @@ It's plain HTML, CSS and JavaScript with no build step.
 - **Quickest:** open `index.html` in a browser.
 - **On your phone, from your computer:** run `python3 -m http.server 8000` in this folder, then open `http://<your-computer's-IP>:8000` on your phone (same Wi-Fi).
 
+**Modes.** The start menu offers a **Normal shift** (09:00 to 17:00 on a ticking clock) or **Kid mode** (no clock; each day ends after eight souls). Modes live in `MODES` in `data.js`. Change `soulsPerDay`, or add another mode there, and it appears on the menu.
+
 Keyboard: `1` Rebirth, `2` Hell (then `2` to `9` for the court), `3` Return, `B` take the bribe, `A` abacus clerk, `P` or `Esc` pause.
 
 **Pausing** stops the clock and turns the papers face down, so it can't be used to study a case. The game also pauses itself if you switch tabs or lock your phone.

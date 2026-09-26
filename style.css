@@ -239,3 +239,12 @@ b { font-weight: 600; }
 .tip small { color: var(--muted); font-size: 12px; }
 @keyframes tipin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .tip { animation: none; } }
+
+/* ---------- start menu ---------- */
+.menu-h { margin: 6px 0 0; font-family: var(--f-display); font-size: 11px; font-weight: 400; letter-spacing: .06em; text-transform: uppercase; color: var(--gold); }
+.modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.mode { display: grid; gap: 4px; text-align: left; align-content: start; padding: 12px 14px; background: var(--void); color: var(--text); border: 3px solid var(--line); box-shadow: 0 4px 0 #000; }
+.mode:hover, .mode:focus-visible { border-color: var(--gold); }
+.mode:active { transform: translateY(3px); box-shadow: 0 1px 0 #000; }
+.mode-name { font-family: var(--f-display); font-weight: 700; font-size: 14px; text-transform: uppercase; color: var(--lacquer); }
+.mode-blurb { font-size: 14px; color: var(--muted); }

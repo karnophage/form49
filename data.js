@@ -232,6 +232,15 @@ window.F49 = (() => {
     { t: "Held a door open for a monk (once)", v: 1 },
   ];
 
+  // Ways to play. A mode without a clock ends each day after a set number of souls.
+  const MODES = {
+    normal: { label: "Normal shift", timed: true,
+      blurb: "The full job. The window is open 09:00 to 17:00 and the clock doesn't stop for anyone." },
+    kid: { label: "Kid mode", timed: false, soulsPerDay: 8,
+      blurb: "No clock. Eight souls a day, and you take as long as you like with each one.",
+      memo: "Trainee arrangement: no clock for you. File eight souls, then go home. Take your time. They're not going anywhere." },
+  };
+
   const ECON = { wage: 1, dorm: 3, sutra: 5, sutraMerit: 1, bribeMerit: -2, auditChance: 0.25, auditMerit: -2, abacus: 2 };
 
   // Hand-written souls, slotted in at fixed queue positions each day.
@@ -344,7 +353,7 @@ window.F49 = (() => {
     },
   ];
 
-  return { CAT_INFO, KING_NOTES, GLOSSARY, CATS, COURTS, LOOKALIKE, GIVEN, SURNAMES, HOMETOWNS, OCCUPATIONS, CAUSES, GOOD_DEEDS, BAD_DEEDS,
+  return { MODES, CAT_INFO, KING_NOTES, GLOSSARY, CATS, COURTS, LOOKALIKE, GIVEN, SURNAMES, HOMETOWNS, OCCUPATIONS, CAUSES, GOOD_DEEDS, BAD_DEEDS,
     GREETINGS, CLAIMS, BRIBE_LINES, REACT, TIERS, SEAL, SEAL_FAKES, TEMPLES, PLAYER_LIFE, ECON, SPECIALS,
     BASE_RULES, DAYS };
 })();
