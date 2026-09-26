@@ -241,7 +241,15 @@ window.F49 = (() => {
       memo: "Trainee arrangement: no clock for you. File eight souls, then go home. Take your time. They're not going anywhere." },
   };
 
-  const ECON = { wage: 1, dorm: 3, sutra: 5, sutraMerit: 1, bribeMerit: -2, auditChance: 0.25, auditMerit: -2, abacus: 2 };
+  // contribRate: hell bank notes per point of merit at your own final judgement. Corruption is cheaper than piety (sutra).
+  const ECON = { wage: 1, dorm: 3, sutra: 5, sutraMerit: 1, bribeMerit: -1, bribeMin: 4, bribeMax: 10,
+    auditChance: 0.2, auditMerit: -1, abacus: 2, contribRate: 3 };
+
+  // Ox-Head nudges the first couple of times a bribe is on the table.
+  const BRIBE_WHISPERS = [
+    "(whispering) Take it. Everyone does. You'll want money when your own file comes up.",
+    "(whispering) Your own judgement is in three days. The judges down here accept contributions. Just saying.",
+  ];
 
   // Hand-written souls, slotted in at fixed queue positions each day.
   // deeds: [text, value, category (bad deeds only)]
@@ -268,7 +276,7 @@ window.F49 = (() => {
       deeds: [["Used a hollow-bottomed rice measure", -3, "tax"], ["Declared the family ox as 'decorative'", -2, "tax"],
         ["Donated to the temple roof fund (plaque with own name, 2 metres tall)", 1]],
       lines: [["soul", "Clerk! Friend! Let's not make this complicated."]],
-      bribe: 8,
+      bribe: 9,
       look: { hair: "cap", beard: true },
     },
     son: {
@@ -302,7 +310,7 @@ window.F49 = (() => {
       cert: { temple: "White Horse Temple", value: 3, shape: "square", ink: "vermilion", code: "LOTUS-7" },
       lines: [["soul", "I'm related to King Yama. On my mother's side. Distantly. Very distantly."],
         ["ox", "Everyone's related to Yama. Do the sums."]],
-      bribe: 5,
+      bribe: 7,
       look: { old: true, beard: true, hair: "topknot" },
     },
   };
@@ -353,7 +361,7 @@ window.F49 = (() => {
     },
   ];
 
-  return { MODES, CAT_INFO, KING_NOTES, GLOSSARY, CATS, COURTS, LOOKALIKE, GIVEN, SURNAMES, HOMETOWNS, OCCUPATIONS, CAUSES, GOOD_DEEDS, BAD_DEEDS,
+  return { BRIBE_WHISPERS, MODES, CAT_INFO, KING_NOTES, GLOSSARY, CATS, COURTS, LOOKALIKE, GIVEN, SURNAMES, HOMETOWNS, OCCUPATIONS, CAUSES, GOOD_DEEDS, BAD_DEEDS,
     GREETINGS, CLAIMS, BRIBE_LINES, REACT, TIERS, SEAL, SEAL_FAKES, TEMPLES, PLAYER_LIFE, ECON, SPECIALS,
     BASE_RULES, DAYS };
 })();

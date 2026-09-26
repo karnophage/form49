@@ -25,6 +25,8 @@ Keyboard: `1` Rebirth, `2` Hell (then `2` to `9` for the court), `3` Return, `B`
 
 **Tooltips.** Hover (or tap, on a phone) any sin tag like `FRAUD`, any row of the hell routing table, or any dotted-underlined term (Qingming, the Diamond Sutra, hell money...) for a definition. Category and court text lives in `CAT_INFO` and `KING_NOTES` in `data.js`, and real-world terms in `GLOSSARY`. Add an entry there and every matching word in the papers gets underlined automatically.
 
+**Bribes pay, eventually.** Taking one costs a little merit and risks a Censorate audit, but hell bank notes you still hold at the end can be "contributed" to your own file for merit, at a better rate than honest sutra chanting. The numbers are in `ECON` in `data.js`.
+
 **The abacus clerk** sums the Book's ledger for you (with Filial Piety Week doubling applied) for a fee in hell bank notes, set by `ECON.abacus` in `data.js`. It doesn't check names, ages or certificates, and it doesn't pick the court. That's still your job.
 
 ## Where things live

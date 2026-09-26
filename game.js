@@ -37,8 +37,8 @@
   // ---------- state ----------
   const S = {
     phase: "title", mode: "normal", day: 1, notes: 0,
-    service: { correct: 0, wrong: 0, bribes: 0, sutras: 0, audits: 0, arrears: 0 },
-    today: null, clock: OPEN, soulIndex: 0, soul: null, busy: false, stamping: false, closing: false,
+    service: { correct: 0, wrong: 0, bribes: 0, sutras: 0, audits: 0, arrears: 0, contrib: 0 },
+    whispers: 0, today: null, clock: OPEN, soulIndex: 0, soul: null, busy: false, stamping: false, closing: false,
     sound: true, pickingCourt: false, paused: false,
   };
   const dayCfg = () => D.DAYS[S.day - 1];
@@ -85,6 +85,7 @@
   function playerRows() {
     const s = S.service, rows = D.PLAYER_LIFE.map((r) => ({ ...r }));
     if (s.correct) rows.push({ t: `Souls filed correctly ×${s.correct}`, v: s.correct });
+    if (s.contrib) rows.push({ t: `Administrative adjustment ×${s.contrib}`, v: s.contrib });
     if (s.sutras) rows.push({ t: `Outsourced sutra chanting ×${s.sutras}`, v: s.sutras * D.ECON.sutraMerit });
     if (s.wrong) rows.push({ t: `Clerical errors ×${s.wrong}`, v: -s.wrong, cat: "shirk" });
     if (s.bribes) rows.push({ t: `Bribes accepted ×${s.bribes}`, v: s.bribes * D.ECON.bribeMerit, cat: "fraud" });
@@ -132,7 +133,7 @@
     };
     if (chance(0.25)) s.lines.push(["soul", pick(D.CLAIMS)]);
     const guilty = judge(s, day).v !== "rebirth";
-    if ((guilty && chance(0.3)) || chance(0.05)) s.bribe = randint(2, 9);
+    if ((guilty && chance(0.3)) || chance(0.05)) s.bribe = randint(D.ECON.bribeMin, D.ECON.bribeMax);
     return s;
   }
 
@@ -163,7 +164,10 @@
     const s = key ? buildSpecial(D.SPECIALS[key]) : randomSoul(day);
     s.caseNo = `49-${S.day}${String(idx + 1).padStart(3, "0")}`;
     s.look = makeLook(s.lookHint);
-    if (s.bribe) s.lines.push(["soul", pick(D.BRIBE_LINES)]);
+    if (s.bribe) {
+      s.lines.push(["soul", pick(D.BRIBE_LINES)]);
+      if (!S.service.bribes && S.whispers < D.BRIBE_WHISPERS.length) s.lines.push(["ox", D.BRIBE_WHISPERS[S.whispers++]]);
+    }
     return s;
   }
 
@@ -737,9 +741,10 @@
         <tr><td><b>Balance</b></td><td class="num"><b id="bal">${S.notes}B</b></td></tr>
       </tbody></table>
       <div class="shop">
-        <div><b>Outsourced sutra chanting</b><br><small>A monk upstairs chants on your behalf. ${E.sutra}B for +${E.sutraMerit} merit. Very efficient. Slightly suspicious.</small></div>
+        <div><b>Outsourced sutra chanting</b><br><small>A monk upstairs chants on your behalf. ${E.sutra}B for +${E.sutraMerit} merit. The honest way to buy merit. Also the expensive way.</small></div>
         <button class="btn" data-act="sutra" ${S.notes < E.sutra ? "disabled" : ""}>Buy (${E.sutra}B)</button>
       </div>
+      <p class="fine">Rumour in the dormitory: when your own file comes up after Day ${D.DAYS.length}, the Tenth Court's clerks accept "contributions" at ${E.contribRate}B a point.</p>
       <p class="yours">Your own net merit: <b class="num">${signed(netOf(playerRows()))}</b></p>
       <button class="btn primary" data-act="${last ? "ending" : "nextday"}">${last ? "Submit your own file" : "Clock off"}</button>`);
   }
@@ -747,22 +752,38 @@
   function ending() {
     S.phase = "ending";
     clearSave();
+    const rate = D.ECON.contribRate, k = Math.floor(S.notes / rate);
+    if (!k) return verdictSheet();
+    showSheet(`
+      <header class="memo-head"><span>Your file</span><span>Before judgement</span></header>
+      <p>Your file is on a clerk's desk in the Tenth Court. He hasn't opened it yet. He's looking at your wallet.</p>
+      <p>"Administrative adjustments" are ${rate}B per point of merit. You have <b>${S.notes}B</b>, enough for <b>+${k} merit</b>.</p>
+      <div class="row">
+        <button class="btn primary" data-act="contrib-all">Contribute ${k * rate}B (+${k})</button>
+        <button class="btn" data-act="contrib-none">Keep my conscience</button>
+      </div>
+      <p class="fine">Nobody audits the Tenth Court. That's the Tenth Court's position, anyway.</p>`);
+  }
+
+  function verdictSheet() {
     const rows = playerRows(), r = verdictFromRows(rows);
     const table = rows.map((d) => `<tr><td>${esc(d.t)}${d.cat ? tagHTML(d.cat) : ""}</td><td class="v ${d.v > 0 ? "pos" : "neg"}">${signed(d.v)}</td></tr>`).join("");
     const verdict = r.v === "rebirth"
       ? `<div class="big-stamp rebirth">Rebirth</div><p>Net merit ${signed(r.net)}. Forwarded to King Zhuanlun. You will be reborn as <b>${esc(tierFor(r.net))}</b></p><p>Meng Po is waiting at the bridge with the soup. You won't remember any of this. Probably for the best.</p>`
       : `<div class="big-stamp">Hell · Court ${r.court}</div><p>Net merit ${signed(r.net)}. Your worst entry: "${esc(r.worst ? r.worst.t : "Did nothing at all")}". Routed to ${D.COURTS[r.court].king}.</p><p>${esc(D.COURTS[r.court].sentence || "")}</p><p>On the bright side, you know exactly how the paperwork works.</p>`;
+    const paid = S.service.contrib ? `<p class="fine">The Tenth Court thanks you for your contribution. It has been noted. Nowhere official.</p>` : "";
     showSheet(`
       <header class="memo-head"><span>Book of Life &amp; Death</span><span>Extract: You</span></header>
       <p>Three days are up. Your own file lands on someone else's desk.</p>
       <div class="ledger"><table><tbody>${table}</tbody></table></div>
-      ${verdict}
+      ${verdict}${paid}
       <button class="btn primary" data-act="restart">New life, same job</button>`);
   }
 
   function resetGame() {
     S.day = 1; S.notes = 0; S.today = null;
-    S.service = { correct: 0, wrong: 0, bribes: 0, sutras: 0, audits: 0, arrears: 0 };
+    S.service = { correct: 0, wrong: 0, bribes: 0, sutras: 0, audits: 0, arrears: 0, contrib: 0 };
+    S.whispers = 0;
   }
 
   // ---------- canvas scene ----------
@@ -1124,6 +1145,12 @@
     else if (act === "quit-yes") quitToTitle();
     else if (act === "cancel") hideSheet();
     else if (act === "nextday") { const night = nightCaption(); S.day++; beginDay(night); }
+    else if (act === "contrib-all") {
+      const k = Math.floor(S.notes / D.ECON.contribRate);
+      S.service.contrib = (S.service.contrib || 0) + k; S.notes -= k * D.ECON.contribRate;
+      sfx.coins(); renderHud(); verdictSheet();
+    }
+    else if (act === "contrib-none") verdictSheet();
     else if (act === "ending") transition({ night: nightCaption(), title: "Judgement", sub: "Your own file, on someone else's desk", then: ending });
     else if (act === "restart") { hideSheet(); titleScreen(); }
     else if (act === "sutra" && S.notes >= D.ECON.sutra) {
