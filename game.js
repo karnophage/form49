@@ -86,7 +86,7 @@
     const s = S.service, rows = D.PLAYER_LIFE.map((r) => ({ ...r }));
     if (s.correct) rows.push({ t: `Souls filed correctly ×${s.correct}`, v: s.correct });
     if (s.contrib) rows.push({ t: `Administrative adjustment ×${s.contrib}`, v: s.contrib });
-    if (s.sutras) rows.push({ t: `Outsourced sutra chanting ×${s.sutras}`, v: s.sutras * D.ECON.sutraMerit });
+    if (s.sutras) rows.push({ t: `Sutra chanting, booked through an agent ×${s.sutras}`, v: s.sutras * D.ECON.sutraMerit });
     if (s.wrong) rows.push({ t: `Clerical errors ×${s.wrong}`, v: -s.wrong, cat: "shirk" });
     if (s.bribes) rows.push({ t: `Bribes accepted ×${s.bribes}`, v: s.bribes * D.ECON.bribeMerit, cat: "fraud" });
     if (s.audits) rows.push({ t: `Caught by the Censorate ×${s.audits}`, v: s.audits * D.ECON.auditMerit, cat: "fraud" });
@@ -741,7 +741,7 @@
         <tr><td><b>Balance</b></td><td class="num"><b id="bal">${S.notes}B</b></td></tr>
       </tbody></table>
       <div class="shop">
-        <div><b>Outsourced sutra chanting</b><br><small>A monk upstairs chants on your behalf. ${E.sutra}B for +${E.sutraMerit} merit. The honest way to buy merit. Also the expensive way.</small></div>
+        <div><b>Sutra chanting, booked through an agent</b><br><small>A dormitory "agent" arranges for a monk to chant on your behalf, and keeps most of the fee. ${E.sutra}B for +${E.sutraMerit} merit. The monk is fine. The agent is the problem.</small></div>
         <button class="btn" data-act="sutra" ${S.notes < E.sutra ? "disabled" : ""}>Buy (${E.sutra}B)</button>
       </div>
       <p class="fine">Rumour in the dormitory: when your own file comes up after Day ${D.DAYS.length}, the Tenth Court's clerks accept "contributions" at ${E.contribRate}B a point.</p>

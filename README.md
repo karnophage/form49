@@ -1,6 +1,6 @@
 # Form 49
 
-A small *Papers, Please*-style desk game set in the First Court of the Chinese Buddhist underworld (Diyu). You're a dead clerk working off your own karmic debt by processing other dead people's paperwork.
+A small *Papers, Please*-style desk game set in the First Court of Diyu, the underworld of Chinese folk religion, where Buddhist and Taoist belief meet. You're a dead clerk working off your own karmic debt by processing other dead people's paperwork.
 
 Each soul arrives with a **Case File** and an extract from the **Book of Life and Death**. You check the two against each other, add up their deeds, and stamp one of three verdicts:
 
@@ -25,7 +25,7 @@ Keyboard: `1` Rebirth, `2` Hell (then `2` to `9` for the court), `3` Return, `B`
 
 **Tooltips.** Hover (or tap, on a phone) any sin tag like `FRAUD`, any row of the hell routing table, or any dotted-underlined term (Qingming, the Diamond Sutra, hell money...) for a definition. Category and court text lives in `CAT_INFO` and `KING_NOTES` in `data.js`, and real-world terms in `GLOSSARY`. Add an entry there and every matching word in the papers gets underlined automatically.
 
-**Bribes pay, eventually.** Taking one costs a little merit and risks a Censorate audit, but hell bank notes you still hold at the end can be "contributed" to your own file for merit, at a better rate than honest sutra chanting. The numbers are in `ECON` in `data.js`.
+**Bribes pay, eventually.** Taking one costs a little merit and risks a Censorate audit, but hell bank notes you still hold at the end can be "contributed" to your own file for merit, at a better rate than sutra chanting booked through the dormitory's agent. The numbers are in `ECON` in `data.js`.
 
 **The abacus clerk** sums the Book's ledger for you (with Filial Piety Week doubling applied) for a fee in hell bank notes, set by `ECON.abacus` in `data.js`. It doesn't check names, ages or certificates, and it doesn't pick the court. That's still your job.
 
@@ -46,12 +46,12 @@ A few easy first changes to try:
 
 ## About the source material
 
-The setting is real, the details are played for laughs.
+The setting is real, the details are played for laughs. The Ten Courts belong to Chinese folk religion, a blend of Buddhist, Taoist and popular belief, and are still part of living practice in places like Malaysia and Singapore (see the Ten Chambers of Hell at Chin Swee Caves Temple in Genting Highlands, or Haw Par Villa in Singapore). The satire is aimed at the underworld's officials and paperwork, not at the people who keep these traditions.
 
 - **Real:** the Ten Kings and their names, the Book of Life and Death, Ox-Head and Horse-Face, Meng Po's soup of forgetting, hell bank notes, and the 49-day mourning period that gives the game its name. In folk tradition Yama really was demoted from the First Court to the Fifth for being too lenient.
 - **Made up for the game:** which sins go to which court (the traditional lists vary by text and are much grimmer), the sentences, the certificates and every rule in the Rulebook.
 
-Further reading: Stephen F. Teiser, *The Scripture on the Ten Kings and the Making of Purgatory in Medieval Chinese Buddhism* (University of Hawai'i Press, 1994), and the Wikipedia article on [Diyu](https://en.wikipedia.org/wiki/Diyu).
+Further reading: the [Jade Record](https://en.wikipedia.org/wiki/Jade_Record) (*Yuli Baochao*), the popular tract behind most temple depictions of the Ten Courts; Stephen F. Teiser, *The Scripture on the Ten Kings and the Making of Purgatory in Medieval Chinese Buddhism* (University of Hawai'i Press, 1994), and the Wikipedia article on [Diyu](https://en.wikipedia.org/wiki/Diyu).
 
 ## License
 
@@ -60,4 +60,4 @@ Form 49 is split-licensed. See [LICENSE](LICENSE) for the full text.
 - **Code** (`game.js`, `style.css`, `index.html`, and the structure of `data.js`): [MIT](https://opensource.org/license/mit). Borrow the stamp logic, particle effects or drawing helpers for your own project, as long as you keep the copyright notice.
 - **Game content** (the writing, characters, souls, jokes, memos, the "Form 49" name, and all art and sound, including the specific characters and scenes drawn by `game.js`): © 2026 karnophage, all rights reserved. Please don't reuse it without asking.
 
-The fonts (Silkscreen, Pixelify Sans, VT323) are loaded from Google Fonts and belong to their authors under the SIL Open Font License. They aren't covered by either license above.
+The fonts (Silkscreen, Atkinson Hyperlegible Next and Atkinson Hyperlegible Mono) are loaded from Google Fonts and belong to their authors under the SIL Open Font License. They aren't covered by either license above.

@@ -31,7 +31,7 @@ window.F49 = (() => {
 
   // Notes on the kings from the actual tradition. Kings without a solid, well-known fact get none.
   const KING_NOTES = {
-    1:  "Judges the newly dead first. In many accounts the Mirror of Retribution stands in his court, showing each soul its own misdeeds.",
+    1:  "Judges the newly dead first. In the Jade Record, the Mirror of Reflection stands in his court, letting each soul see its own sins.",
     5:  "The best-known of the Ten Kings, adapted from the Indian god Yama. Folk tradition says he once ran the First Court but was moved to the Fifth for being too soft on souls who had died unjustly.",
     7:  "Named after Mount Tai, which Chinese belief linked to the dead long before Buddhism arrived.",
     9:  "His name, Pingdeng, means \"impartial\" or \"equal\".",
