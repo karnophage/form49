@@ -484,6 +484,7 @@
     try {
       const v = JSON.parse(localStorage.getItem(SAVE_KEY));
       const ok = v && Number.isInteger(v.day) && v.day >= 1 && v.day <= D.DAYS.length && Number.isFinite(v.notes) && v.service && typeof v.service === "object";
+      if (ok && v.mode === "kid") v.mode = "trainee"; // renamed
       if (ok && !D.MODES[v.mode]) v.mode = "normal"; // saves from before modes existed
       return ok ? v : null;
     } catch (e) { return null; }

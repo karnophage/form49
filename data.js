@@ -236,7 +236,7 @@ window.F49 = (() => {
   const MODES = {
     normal: { label: "Normal shift", timed: true,
       blurb: "The full job. The window is open 09:00 to 17:00 and the clock doesn't stop for anyone." },
-    kid: { label: "Kid mode", timed: false, soulsPerDay: 8,
+    trainee: { label: "Trainee mode", timed: false, soulsPerDay: 8,
       blurb: "No clock. Eight souls a day, and you take as long as you like with each one.",
       memo: "Trainee arrangement: no clock for you. File eight souls, then go home. Take your time. They're not going anywhere." },
   };
