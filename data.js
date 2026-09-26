@@ -31,7 +31,7 @@ window.F49 = (() => {
 
   // Notes on the kings from the actual tradition. Kings without a solid, well-known fact get none.
   const KING_NOTES = {
-    1:  "Judges the newly dead first. In many accounts the Mirror of Retribution stands in his court, showing each soul its own misdeeds.",
+    1:  "Judges the newly dead first. In the Jade Record, the Mirror of Reflection stands in his court, letting each soul see its own sins.",
     5:  "The best-known of the Ten Kings, adapted from the Indian god Yama. Folk tradition says he once ran the First Court but was moved to the Fifth for being too soft on souls who had died unjustly.",
     7:  "Named after Mount Tai, which Chinese belief linked to the dead long before Buddhism arrived.",
     9:  "His name, Pingdeng, means \"impartial\" or \"equal\".",
@@ -232,7 +232,24 @@ window.F49 = (() => {
     { t: "Held a door open for a monk (once)", v: 1 },
   ];
 
-  const ECON = { wage: 1, dorm: 3, sutra: 5, sutraMerit: 1, bribeMerit: -2, auditChance: 0.25, auditMerit: -2, abacus: 2 };
+  // Ways to play. A mode without a clock ends each day after a set number of souls.
+  const MODES = {
+    normal: { label: "Normal shift", timed: true,
+      blurb: "The full job. The window is open 09:00 to 17:00 and the clock doesn't stop for anyone." },
+    trainee: { label: "Trainee mode", timed: false, soulsPerDay: 8,
+      blurb: "No clock. Eight souls a day, and you take as long as you like with each one.",
+      memo: "Trainee arrangement: no clock for you. File eight souls, then go home. Take your time. They're not going anywhere." },
+  };
+
+  // contribRate: hell bank notes per point of merit at your own final judgement. Corruption is cheaper than piety (sutra).
+  const ECON = { wage: 1, dorm: 3, sutra: 5, sutraMerit: 1, bribeMerit: -1, bribeMin: 4, bribeMax: 10,
+    auditChance: 0.2, auditMerit: -1, abacus: 2, contribRate: 3 };
+
+  // Ox-Head nudges the first couple of times a bribe is on the table.
+  const BRIBE_WHISPERS = [
+    "(whispering) Take it. Everyone does. You'll want money when your own file comes up.",
+    "(whispering) Your own judgement is in three days. The judges down here accept contributions. Just saying.",
+  ];
 
   // Hand-written souls, slotted in at fixed queue positions each day.
   // deeds: [text, value, category (bad deeds only)]
@@ -259,7 +276,7 @@ window.F49 = (() => {
       deeds: [["Used a hollow-bottomed rice measure", -3, "tax"], ["Declared the family ox as 'decorative'", -2, "tax"],
         ["Donated to the temple roof fund (plaque with own name, 2 metres tall)", 1]],
       lines: [["soul", "Clerk! Friend! Let's not make this complicated."]],
-      bribe: 8,
+      bribe: 9,
       look: { hair: "cap", beard: true },
     },
     son: {
@@ -293,7 +310,7 @@ window.F49 = (() => {
       cert: { temple: "White Horse Temple", value: 3, shape: "square", ink: "vermilion", code: "LOTUS-7" },
       lines: [["soul", "I'm related to King Yama. On my mother's side. Distantly. Very distantly."],
         ["ox", "Everyone's related to Yama. Do the sums."]],
-      bribe: 5,
+      bribe: 7,
       look: { old: true, beard: true, hair: "topknot" },
     },
   };
@@ -344,7 +361,7 @@ window.F49 = (() => {
     },
   ];
 
-  return { CAT_INFO, KING_NOTES, GLOSSARY, CATS, COURTS, LOOKALIKE, GIVEN, SURNAMES, HOMETOWNS, OCCUPATIONS, CAUSES, GOOD_DEEDS, BAD_DEEDS,
+  return { BRIBE_WHISPERS, MODES, CAT_INFO, KING_NOTES, GLOSSARY, CATS, COURTS, LOOKALIKE, GIVEN, SURNAMES, HOMETOWNS, OCCUPATIONS, CAUSES, GOOD_DEEDS, BAD_DEEDS,
     GREETINGS, CLAIMS, BRIBE_LINES, REACT, TIERS, SEAL, SEAL_FAKES, TEMPLES, PLAYER_LIFE, ECON, SPECIALS,
     BASE_RULES, DAYS };
 })();
